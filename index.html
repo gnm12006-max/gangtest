@@ -614,6 +614,16 @@
         .dp-cancel, .dp-send { border-radius: 12px; border: none; padding: 16px 0; font-size: 1.05rem; font-weight: 800; }
         .dp-cancel { background: #2e2e33; color: #f1f5f9; } .dp-send { background: #e08a70; color: #1a1a1a; }
         .dp-send:disabled { opacity: .35; }
+        /* v29.1: 자원 클릭 시 초당 증가량 설명 */
+        header .res-item.tip { cursor: pointer; }
+        header .res-item.tip .res-val { border-bottom: 1px dotted #7dd3fc; }
+        .res-tip { position: fixed; left: 12px; right: 12px; top: 120px; z-index: 2700; display: none; max-width: 460px;
+            background: rgba(17, 17, 20, 0.97); border: 1px solid #3a3a40; border-radius: 16px; padding: 16px 18px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.7); }
+        .res-tip .rt-title { font-size: 1.2rem; font-weight: 800; color: #fff; margin-bottom: 8px; }
+        .res-tip .rt-pos { color: #86efac; font-size: 1rem; line-height: 1.6; }
+        .res-tip .rt-neg { color: #fca5a5; font-size: 1rem; line-height: 1.6; }
+        .res-tip .rt-dim { color: #94a3b8; font-size: 0.85rem; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -621,7 +631,7 @@
     <header>
         <div class="logo">
             🗺️ 한반도 전략 개척
-            <span class="version-badge">v29.0</span>
+            <span class="version-badge">v29.1</span>
         </div>
 
         <button id="btn-menu" class="menu-btn" aria-label="메뉴">☰</button>
@@ -710,6 +720,8 @@
         </div>
 
         <div id="dip-sheet" class="dip-sheet"></div>
+
+        <div id="res-tip" class="res-tip"></div>
 
         <div id="toast" class="toast">알림 메시지</div>
 
@@ -1399,6 +1411,7 @@
             renderDivisionLeafletMarkers();
             updateBoard();
             updateUI();
+            if (resTipKind) renderResTip();
         }
 
         function regenNatives(mult) {
@@ -2097,6 +2110,52 @@
             $('fb-list').addEventListener('click', e => { const r = e.target.closest('[data-fid]'); if (r && r.dataset.fid !== 'player') openDip(r.dataset.fid); });
         }
 
+
+        // ===== v29.1: 자원 증가량 설명 =====
+        const tribNet = f => {
+            let inn = 0, out = 0;
+            const lord = FAC[DIP.vassal[f.id]];
+            if (lord && lord.alive) { const m = computeEconomy(f).money; if (m > 0) out = m * TRIBUTE; }
+            Object.keys(DIP.vassal).forEach(v => { if (DIP.vassal[v] === f.id && alive(v)) { const m = computeEconomy(FAC[v]).money; if (m > 0) inn += m * TRIBUTE; } });
+            return { inn, out };
+        };
+        const r1 = n => String(Math.round(n * 10) / 10);
+        let resTipKind = null;
+        function renderResTip() {
+            const el = $('res-tip');
+            if (!resTipKind) { el.style.display = 'none'; return; }
+            const bar = document.querySelector('.resource-bar').getBoundingClientRect();
+            el.style.top = (bar.bottom + 8) + 'px';
+            el.style.display = 'block';
+            if (!P.capitalId) { el.innerHTML = '<div class="rt-title">아직 생산이 없습니다</div><div class="rt-dim">수도를 세우면 초당 생산이 시작됩니다.</div>'; return; }
+            let mb = 0, ml = 0, md = 0, cb = 0, cl = 0, cd = 0, landUp = 0;
+            P.ownedList.forEach(r => {
+                if (isCap(r)) { mb += CAP_MIL; md += CAP_MIL * 0.5 * r.milLv; cb += CAP_MONEY; cd += CAP_MONEY * 0.5 * r.ecoLv; }
+                else { const a = r.milRate * 0.01, c = r.moneyRate * 0.25; ml += a; md += a * 0.6 * r.milLv; cl += c; cd += c * 0.6 * r.ecoLv; landUp += LAND_UPKEEP; }
+            });
+            if (resTipKind === 'mil') {
+                const tot = mb + ml + md;
+                el.innerHTML = `<div class="rt-title">군사력 +${r1(tot)}/초</div><div class="rt-pos">기본 ${r1(mb)} + 영토 ${r1(ml)} + 군사개발 ${r1(md)}</div>` +
+                    (P.military >= MAX_MIL ? `<div class="rt-dim">최대치(${MAX_MIL})라서 더 쌓이지 않습니다</div>` : `<div class="rt-dim">현재 ${Math.floor(P.military)} / ${MAX_MIL}</div>`);
+            } else {
+                const e = computeEconomy(P), t = tribNet(P), net = e.net + t.inn - t.out;
+                const gain = cb + cl + cd + t.inn;
+                const cost = landUp + e.divUp + t.out;
+                el.innerHTML = `<div class="rt-title">자금력 ${net >= 0 ? '+' : ''}${r1(net)}/초 <span style="font-size:.8rem;color:#94a3b8;font-weight:600;">(순수익)</span></div>` +
+                    `<div class="rt-pos">수입 +${r1(gain)} : 기본 ${r1(cb)} + 영토 ${r1(cl)} + 경제개발 ${r1(cd)}${t.inn ? ' + 조공 ' + r1(t.inn) : ''}</div>` +
+                    `<div class="rt-neg">지출 -${r1(cost)} : 영토 유지비 ${r1(landUp)} + 사단 유지비 ${r1(e.divUp)}${t.out ? ' + 조공 ' + r1(t.out) : ''}</div>` +
+                    (P.money >= MAX_MONEY ? `<div class="rt-dim">최대치(${MAX_MONEY.toLocaleString()})라서 더 쌓이지 않습니다</div>` : `<div class="rt-dim">현재 ${Math.floor(P.money).toLocaleString()} / ${MAX_MONEY.toLocaleString()}</div>`);
+            }
+        }
+        function initResTip() {
+            [['res-military', 'mil'], ['res-money', 'money']].forEach(([id, k]) => {
+                const it = $(id).parentElement;
+                it.classList.add('tip');
+                it.addEventListener('click', e => { e.stopPropagation(); resTipKind = resTipKind === k ? null : k; renderResTip(); });
+            });
+            document.addEventListener('click', e => { if (resTipKind && !e.target.closest('#res-tip')) { resTipKind = null; renderResTip(); } });
+        }
+
         // ===== v26: 자동 저장 / 이어하기 =====
         const SAVE_KEY = 'hanbando_save_v1';
         let gameEnded = false;
@@ -2259,8 +2318,9 @@
             if (gameState.capitalRegionId) {
                 const e = computeEconomy();
                 const net = $('res-net');
-                net.textContent = `(${sgn(e.net)}/s)`;
-                net.style.color = e.net < 0 ? '#f87171' : '#4ade80';
+                const tn = tribNet(P), nn = e.net + tn.inn - tn.out;
+                net.textContent = `(${sgn(nn)}/s)`;
+                net.style.color = nn < 0 ? '#f87171' : '#4ade80';
             }
 
             const reg = getReg(gameState.selectedRegionId);
@@ -2356,6 +2416,7 @@
 
         function attachEventListeners() {
             initDip();
+            initResTip();
             $('btn-pause').addEventListener('click', () => setSpeed(0));
             $('btn-1x').addEventListener('click', () => setSpeed(1));
             $('btn-2x').addEventListener('click', () => setSpeed(2));
