@@ -1,0 +1,2619 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="한반도">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <title>한반도 영토 개척 전략 v29 (Hanbando RTS v29)</title>
+    
+    <!-- Leaflet Real Interactive Map Library -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #080d16;
+            --panel-bg: rgba(22, 28, 38, 0.95);
+            --panel-border: #2a374d;
+            --accent-blue: #38bdf8;
+            --accent-orange: #f97316;
+            --text-main: #f1f5f9;
+            --text-dim: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            overscroll-behavior: none;
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        header {
+            min-height: 52px;
+            background: #0f172a;
+            border-bottom: 1px solid var(--panel-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 14px;
+            padding-top: max(6px, env(safe-area-inset-top));
+            z-index: 1000;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .logo {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--accent-blue);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .version-badge {
+            background: var(--accent-orange);
+            color: #fff;
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 700;
+        }
+
+        .resource-bar {
+            display: flex;
+            gap: 12px;
+            background: #1e293b;
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid #334155;
+            font-size: 0.78rem;
+        }
+
+        .res-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .res-val {
+            color: #38bdf8;
+            font-weight: 800;
+        }
+
+        .native-badge { background: linear-gradient(135deg, #b91c1c, #7f1d1d); border: 1.5px solid #fca5a5; border-radius: 6px; color: #fff; font-size: 11px; font-weight: 800; height: 22px; line-height: 19px; padding: 0 5px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.8); white-space: nowrap; }
+        .res-max { color: #64748b; font-size: 0.7rem; }
+        .res-net { font-size: 0.7rem; font-weight: 700; margin-left: 2px; }
+        .resource-bar { flex-wrap: wrap; row-gap: 2px; }
+        .dev-box { display: none; flex-direction: column; gap: 6px; }
+        .dev-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; background: #0d131f; border: 1px solid #1e293b; border-radius: 6px; padding: 5px 8px; font-size: 0.75rem; }
+        .dev-row .action-btn { width: auto; padding: 5px 10px; font-size: 0.72rem; white-space: nowrap; }
+
+        .rts-controls {
+            display: flex;
+            gap: 3px;
+            background: #1e293b;
+            padding: 2px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+
+        .speed-btn {
+            background: transparent;
+            color: #94a3b8;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.72rem;
+            cursor: pointer;
+        }
+
+        .speed-btn.active {
+            background: #2563eb;
+            color: white;
+        }
+
+        .speed-btn.pause.active {
+            background: #ef4444;
+        }
+
+        .game-container {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+            background: #05080f;
+        }
+
+        #map-container {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: #0b121e;
+        }
+
+        /* v22: 사단 마크(나토식 보병 부호) + 아래 인원 숫자 */
+        .div-leaflet-marker {
+            background: transparent;
+            border: none;
+        }
+
+        .div-mark {
+            width: 36px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.1s;
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.85));
+        }
+
+        .div-mark:hover { transform: scale(1.15); }
+
+        .div-mark svg { display: block; }
+        .div-mark .mk-box { fill: #1d4ed8; stroke: #93c5fd; stroke-width: 1.5; }
+        .div-mark .mk-x { stroke: #e0f2fe; stroke-width: 1.4; }
+        .div-mark .mk-xx { fill: #e0f2fe; font-size: 7px; font-weight: 800; }
+        .div-mark.selected .mk-box { fill: #dc2626; stroke: #fbbf24; }
+        .div-mark.selected .mk-x { stroke: #fff; }
+        .div-mark.selected { filter: drop-shadow(0 0 6px rgba(251,191,36,0.95)); }
+
+        .div-mark-count {
+            margin-top: 1px;
+            min-width: 28px;
+            padding: 0 5px;
+            height: 15px;
+            line-height: 14px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 800;
+            color: #fff;
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid #60a5fa;
+            border-radius: 8px;
+            white-space: nowrap;
+        }
+        .div-mark.selected .div-mark-count { border-color: #fbbf24; color: #fde047; }
+
+        /* v23: 빈땅 간단 정보칩 */
+        .land-chip {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            display: none; align-items: center; gap: 8px;
+            background: rgba(15, 23, 42, 0.92); border: 1px solid #475569; border-radius: 16px;
+            padding: 4px 12px; font-size: 0.76rem; font-weight: 700; color: #f1f5f9;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.6); z-index: 600; pointer-events: none; white-space: nowrap;
+            max-width: calc(100% - 100px); overflow: hidden; text-overflow: ellipsis;
+        }
+        .land-chip .lc-nat { color: #fca5a5; }
+
+        /* v24: 누르기 쉬운 큰 버튼 행 */
+        .sec-label { font-size: 0.72rem; color: var(--text-dim); margin-top: 4px; }
+        .act-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+        .act-name { flex: 1; font-size: 0.92rem; font-weight: 800; color: #f1f5f9; white-space: nowrap; }
+        .act-sub { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); margin-left: 4px; }
+        .big-btn {
+            min-width: 76px; min-height: 46px; padding: 0 10px; border-radius: 12px;
+            border: 1.5px solid #5b6b8a; background: rgba(51, 65, 85, 0.55); color: #fde68a;
+            font-size: 1.05rem; font-weight: 800; cursor: pointer; touch-action: manipulation;
+        }
+        .big-btn:active:not(:disabled) { transform: scale(0.96); }
+        .big-btn.primary { background: #e8896b; border-color: #e8896b; color: #1a1a1a; }
+        .big-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        /* v25: 세력 색 / 현황판 / 시작창 */
+        .div-mark .mk-box { fill: var(--fc, #1d4ed8); }
+        .div-mark.ai .mk-box { stroke: #f8fafc; }
+        .div-mark-count { border-color: var(--fc, #60a5fa); }
+        .div-mark.selected .mk-box { fill: #dc2626; }
+        .ai-cap { font-size: 16px; text-align: center; line-height: 22px; filter: drop-shadow(0 1px 2px #000); pointer-events: none; }
+
+        .faction-board {
+            position: absolute; top: 96px; left: 10px; z-index: 550; width: 190px;
+            background: rgba(15, 23, 42, 0.92); border: 1px solid #334155; border-radius: 10px;
+            font-size: 0.74rem; box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+        }
+        .faction-board button { width: 100%; background: transparent; border: none; color: #e2e8f0; font-weight: 800;
+            font-size: 0.78rem; padding: 7px 10px; text-align: left; cursor: pointer; }
+        #fb-list { padding: 0 8px 6px; display: flex; flex-direction: column; gap: 3px; }
+        .fb-row { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 6px; }
+        .fb-row.me { background: rgba(37, 99, 235, 0.25); }
+        .fb-row.dead { opacity: 0.4; text-decoration: line-through; }
+        .fb-dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+        .fb-name { flex: 1; font-weight: 700; white-space: nowrap; }
+        .fb-n { color: #94a3b8; white-space: nowrap; }
+
+        .modal { position: absolute; inset: 0; z-index: 3000; display: none; align-items: center; justify-content: center;
+            background: rgba(5, 8, 15, 0.88); padding: 16px; }
+        .modal-card { background: #111827; border: 1px solid #334155; border-radius: 16px; padding: 22px 20px;
+            width: 100%; max-width: 360px; text-align: center; display: flex; flex-direction: column; gap: 12px; }
+        .modal-title { font-size: 1.15rem; font-weight: 800; color: #38bdf8; }
+        .modal-sub { font-size: 0.82rem; color: #94a3b8; line-height: 1.5; }
+        .modal-btns { display: flex; gap: 8px; justify-content: center; }
+        .modal-btns .big-btn { min-width: 62px; }
+        .modal-btns .big-btn.primary { background: #38bdf8; border-color: #38bdf8; }
+
+        .menu-btn { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; border-radius: 8px;
+            font-size: 1.1rem; line-height: 1; padding: 6px 10px; cursor: pointer; touch-action: manipulation; }
+        .menu-list { display: flex; flex-direction: column; gap: 8px; }
+        .menu-list .big-btn { width: 100%; text-align: left; padding: 0 16px; font-size: 0.98rem; color: #f1f5f9; }
+        .menu-list .big-btn.danger { color: #fca5a5; border-color: #7f1d1d; }
+        .menu-list .big-btn.confirm { background: #b91c1c; border-color: #fca5a5; color: #fff; }
+        .menu-speed { display: flex; gap: 8px; }
+        .menu-speed .big-btn { flex: 1; min-width: 0; text-align: center; padding: 0; }
+        .away-list { display: flex; flex-direction: column; gap: 4px; text-align: left; max-height: 40vh; overflow-y: auto; }
+        .away-row { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; padding: 3px 6px; border-radius: 6px; }
+        .away-row.me { background: rgba(37, 99, 235, 0.25); }
+        .away-row .nm { flex: 1; font-weight: 700; }
+        .away-row .ch { color: #94a3b8; white-space: nowrap; }
+        .away-row.dead .nm { text-decoration: line-through; opacity: 0.6; }
+        @media (max-width: 850px) { .faction-board { top: 92px; width: 176px; } }
+
+        /* Territory Side Panel */
+        .side-panel {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 310px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            z-index: 500;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+        }
+
+        .panel-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--accent-blue);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2a374d;
+            padding-bottom: 5px;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            font-size: 0.78rem;
+        }
+
+        .stat-box {
+            background: #0d131f;
+            padding: 6px;
+            border-radius: 6px;
+            border: 1px solid #1a2638;
+        }
+
+        .stat-label {
+            color: var(--text-dim);
+            font-size: 0.65rem;
+        }
+
+        .stat-value {
+            font-weight: 700;
+            margin-top: 2px;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .input-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            background: #0d131f;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #1e293b;
+        }
+
+        .input-row input {
+            width: 80px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #fff;
+            padding: 4px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #3b82f6;
+            background: rgba(37, 99, 235, 0.2);
+            color: #60a5fa;
+            font-weight: 700;
+            font-size: 0.78rem;
+            cursor: pointer;
+        }
+
+        .action-btn:disabled {
+            opacity: 0.35;
+            border-color: #475569;
+            color: #64748b;
+            cursor: not-allowed;
+        }
+
+        .action-btn.success {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+        }
+
+        /* Floating Division Popup Card */
+        .division-popup {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            width: 320px;
+            background: rgba(18, 24, 34, 0.96);
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.7);
+            backdrop-filter: blur(12px);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            animation: popup-fade 0.2s ease-out;
+        }
+
+        @keyframes popup-fade {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .div-popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .div-popup-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #f1f5f9;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .div-popup-troops {
+            color: #38bdf8;
+            font-weight: 700;
+        }
+
+        .div-popup-location {
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+        .btn-move-action {
+            width: 100%;
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .div-popup-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .reinforce-btn-group {
+            flex: 1;
+            display: flex;
+            gap: 6px;
+        }
+
+        .reinforce-sub-btn {
+            flex: 1;
+            background: #1e293b;
+            border: 1px solid #3b82f6;
+            color: #60a5fa;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .reinforce-sub-btn:hover {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .div-action-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #cbd5e1;
+        }
+
+        .div-action-row.danger {
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .toast {
+            position: absolute;
+            top: 64px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0f172a;
+            border: 1px solid var(--accent-blue);
+            color: var(--text-main);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 2000;
+        }
+
+        .toast.show { opacity: 1; }
+
+        @media (max-width: 850px) {
+            .side-panel {
+                top: auto;
+                bottom: 12px;
+                right: 12px;
+                left: 12px;
+                width: auto;
+                max-height: 42vh;
+            }
+            .division-popup {
+                bottom: 12px;
+                right: 12px;
+                left: 12px;
+                width: auto;
+            }
+        }
+
+        /* ===== v29: 상단 바 정리 (잘 보이게) ===== */
+        header {
+            display: grid; grid-template-columns: auto 1fr auto auto;
+            grid-template-areas: "menu logo inst ctrl" "res res res res";
+            align-items: center; gap: 8px 10px; flex-wrap: nowrap;
+            padding: 8px 12px 10px; padding-top: max(10px, env(safe-area-inset-top));
+            background: #0b1220; border-bottom: 1px solid #3b4a63; min-height: 0;
+        }
+        header #btn-menu { grid-area: menu; width: 42px; height: 42px; padding: 0; font-size: 1.25rem; border-radius: 12px; background: #1e293b; border: 1px solid #475569; color: #f8fafc; }
+        header .logo { grid-area: logo; font-size: 1.02rem; color: #e0f2fe; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        header #btn-install { grid-area: inst; }
+        header .rts-controls { grid-area: ctrl; padding: 3px; gap: 3px; border-color: #475569; background: #1e293b; border-radius: 12px; }
+        header .speed-btn { padding: 0 11px; min-width: 40px; height: 36px; font-size: 0.9rem; color: #e2e8f0; border-radius: 9px; }
+        header .speed-btn.active { color: #fff; }
+        header .resource-bar {
+            grid-area: res; display: grid; grid-template-columns: repeat(4, auto); justify-content: space-between;
+            gap: 6px 10px; padding: 8px 14px; border-radius: 14px; background: #111c30; border: 1px solid #3b4a63; font-size: 0.92rem;
+        }
+        header .res-item { color: #cbd5e1; font-weight: 600; gap: 5px; flex-wrap: wrap; }
+        header .res-val { color: #7dd3fc; font-size: 1.12rem; font-weight: 800; }
+        header .res-max { color: #94a3b8; font-size: 0.78rem; }
+        header .res-net { font-size: 0.8rem; }
+        @media (max-width: 600px) {
+            header .resource-bar { grid-template-columns: 1fr 1fr; }
+            header .res-item { white-space: normal; }
+            header .version-badge { display: none; }
+        }
+
+        /* ===== v29: 외교 시트 ===== */
+        .fb-row { cursor: pointer; }
+        .env-mark { font-size: 20px; text-align: center; line-height: 26px; filter: drop-shadow(0 2px 3px #000); pointer-events: none; }
+        .dip-sheet {
+            position: absolute; left: 50%; transform: translateX(-50%); bottom: 0; z-index: 2600;
+            width: min(100%, 520px); max-height: 88%; overflow-y: auto; display: none;
+            background: #1b1b1d; border: 1px solid #3a3a40; border-bottom: none; border-radius: 22px 22px 0 0;
+            padding: 16px 18px calc(16px + env(safe-area-inset-bottom)); box-shadow: 0 -8px 30px rgba(0,0,0,.65);
+            color: #f1f5f9; font-size: 0.95rem;
+        }
+        .dip-sheet button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
+        .dp-head { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #38383f; }
+        .dp-dot { width: 26px; height: 26px; border-radius: 8px; flex: none; border: 2px solid #f8fafc; }
+        .dp-titlebox { flex: 1; min-width: 0; }
+        .dp-title { flex: 1; font-size: 1.3rem; font-weight: 800; }
+        .dp-subt { color: #8b8b96; font-size: 0.82rem; margin-top: 2px; }
+        .dp-diplo { background: #e8896b; color: #1a1a1a; border: none; border-radius: 999px; padding: 12px 18px; font-size: 1rem; font-weight: 800; }
+        .dp-x, .dp-back { background: transparent; border: none; color: #cbd5e1; font-size: 1.4rem; padding: 4px 8px; }
+        .dp-tags { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 0 2px; }
+        .dp-tags:empty { display: none; }
+        .dp-tag { display: inline-block; font-size: 0.8rem; font-weight: 800; padding: 3px 10px; border-radius: 6px; border: 1px solid #52525b; color: #e4e4e7; }
+        .dp-tag.war { color: #fca5a5; border-color: #b91c1c; } .dp-tag.ally { color: #86efac; border-color: #15803d; }
+        .dp-tag.vassal, .dp-tag.lord { color: #fde68a; border-color: #a16207; }
+        .dp-sec { display: flex; align-items: flex-start; gap: 14px; padding: 13px 0; border-bottom: 1px solid #38383f; }
+        .dp-sec.col { flex-direction: column; gap: 6px; }
+        .dp-lb { color: #8b8b96; font-size: 0.85rem; min-width: 74px; display: inline-block; font-weight: 600; }
+        .dp-val { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+        .dp-chip { display: inline-flex; align-items: center; gap: 5px; background: #2a2a2f; border-radius: 8px; padding: 3px 9px; font-weight: 700; font-size: 0.85rem; }
+        .dp-chip i, .dp-note i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; }
+        .dp-chip i { margin: 0; }
+        .dp-none { color: #6b6b75; font-size: 0.85rem; }
+        .dp-rep { font-size: 1.9rem; font-weight: 800; } .dp-rep.neg { color: #f87171; } .dp-rep.pos { color: #4ade80; }
+        .dp-note { display: flex; justify-content: space-between; gap: 10px; width: 100%; font-weight: 700; font-size: 0.9rem; }
+        .dp-why { color: #8b8b96; font-weight: 500; font-size: 0.8rem; text-align: right; }
+        .dp-rel { display: grid; grid-template-columns: 1fr 1fr; background: #141416; border-radius: 14px; margin: 14px 0 12px; }
+        .dp-rel > div { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+        .dp-rel > div + div { border-left: 1px solid #2c2c32; }
+        .dp-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: #141416; border-radius: 16px; padding: 6px; }
+        .dp-tab { background: transparent; border: 1.5px solid transparent; color: #e4e4e7; border-radius: 11px; padding: 14px 0; font-size: 1rem; font-weight: 700; }
+        .dp-tab.on { background: #3a3a40; border-color: #5a5a63; }
+        .dp-tab.off { color: #5f5f68; }
+        .dp-fl { color: #a1a1aa; font-weight: 700; margin: 16px 0 8px; font-size: 0.95rem; }
+        .dp-sel { width: 100%; background: #141416; color: #f1f5f9; border: 1.5px solid #34343b; border-radius: 12px; padding: 14px; font-size: 1rem; font-family: inherit; }
+        .dp-desc { margin-top: 8px; background: #141416; border: 1.5px solid #34343b; border-radius: 12px; padding: 14px; line-height: 1.55; min-height: 52px; }
+        .dp-off { margin-top: 16px; background: #141416; border-radius: 12px; padding: 16px; color: #fca5a5; font-weight: 700; }
+        .dp-eta { margin: 14px 0 12px; color: #cbd5e1; font-size: 0.88rem; line-height: 1.5; }
+        .dp-eta b { color: #fbbf24; }
+        .dp-btns { display: grid; grid-template-columns: 1fr 1.8fr; gap: 10px; }
+        .dp-cancel, .dp-send { border-radius: 12px; border: none; padding: 16px 0; font-size: 1.05rem; font-weight: 800; }
+        .dp-cancel { background: #2e2e33; color: #f1f5f9; } .dp-send { background: #e08a70; color: #1a1a1a; }
+        .dp-send:disabled { opacity: .35; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            🗺️ 한반도 전략 개척
+            <span class="version-badge">v29.0</span>
+        </div>
+
+        <button id="btn-menu" class="menu-btn" aria-label="메뉴">☰</button>
+
+        <button id="btn-install" class="speed-btn" style="display:none;background:#0ea5e9;color:#fff;border-radius:8px;">📲 설치</button>
+
+        <div class="rts-controls">
+            <button class="speed-btn pause" id="btn-pause">⏸️</button>
+            <button class="speed-btn active" id="btn-1x">▶ 1x</button>
+            <button class="speed-btn" id="btn-2x">⏩ 2x</button>
+        </div>
+
+        <div class="resource-bar">
+            <div class="res-item">⚔️ 군사력 <span id="res-military" class="res-val">0</span><span class="res-max">/500</span></div>
+            <div class="res-item">💰 자금력 <span id="res-money" class="res-val">0</span><span class="res-max">/10,000</span><span id="res-net" class="res-net"></span></div>
+            <div class="res-item">🎖️ 사단 <span id="res-div" class="res-val">0</span><span class="res-max">/30</span></div>
+            <div class="res-item">🏴 영토 <span id="res-land" class="res-val">0</span></div>
+        </div>
+    </header>
+
+    <div class="game-container">
+        <div id="map-container"></div>
+
+        <div id="loading" style="position:absolute;inset:0;z-index:1500;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(5,8,15,.9);gap:10px;text-align:center;padding:20px;">
+            <div style="font-size:1.1rem;font-weight:800;">🗺️ 행정구역 경계 불러오는 중…</div>
+            <div id="loading-msg" style="color:#94a3b8;font-size:.85rem;line-height:1.5;"></div>
+        </div>
+
+        <div id="land-chip" class="land-chip"></div>
+
+        <div id="faction-board" class="faction-board">
+            <button id="fb-toggle">🏳️ 세력 현황 ▾</button>
+            <div id="fb-list"></div>
+        </div>
+
+        <div id="start-modal" class="modal">
+            <div class="modal-card">
+                <div class="modal-title">⚔️ 한반도 전쟁</div>
+                <div class="modal-sub">참가 세력 수를 고르세요 (나 포함)<br>수도를 세우면 AI 세력들도 함께 움직이기 시작합니다.</div>
+                <button class="big-btn primary" id="btn-continue" style="display:none;width:100%;">▶ 이어하기</button>
+                <div class="modal-sub" id="new-game-label" style="display:none;">또는 새 게임 (나 포함 세력 수)</div>
+                <div class="modal-btns">
+                    <button class="big-btn" data-n="5">5</button>
+                    <button class="big-btn" data-n="6">6</button>
+                    <button class="big-btn" data-n="7">7</button>
+                    <button class="big-btn primary" data-n="8">8</button>
+                </div>
+                <div class="modal-sub" style="font-size:.72rem;">AI: 고구려 · 백제 · 신라 · 가야 · 발해 · 부여 · 탐라</div>
+            </div>
+        </div>
+
+        <div id="menu-modal" class="modal" style="z-index:2800;">
+            <div class="modal-card">
+                <div class="modal-title">☰ 메뉴 <span style="font-size:.72rem;color:#94a3b8;font-weight:600;">(게임 일시정지 중)</span></div>
+                <div class="menu-list">
+                    <button class="big-btn primary" id="menu-resume">▶ 계속하기</button>
+                    <div class="menu-speed">
+                        <button class="big-btn" id="menu-sp0">⏸ 정지</button>
+                        <button class="big-btn" id="menu-sp1">▶ 1x</button>
+                        <button class="big-btn" id="menu-sp2">⏩ 2x</button>
+                    </div>
+                    <button class="big-btn" id="menu-save">💾 지금 저장</button>
+                    <button class="big-btn" id="menu-exit">🚪 저장 후 나가기</button>
+                    <button class="big-btn danger" id="menu-new">🔄 새 게임</button>
+                </div>
+                <div class="modal-sub" id="menu-note" style="font-size:.72rem;">자동 저장도 5초마다 됩니다.</div>
+            </div>
+        </div>
+
+        <div id="away-modal" class="modal" style="z-index:3200;">
+            <div class="modal-card">
+                <div class="modal-title" id="away-title">⏱ 자리를 비운 동안…</div>
+                <div class="modal-sub" id="away-sub">그동안의 세상을 계산하는 중입니다</div>
+                <div id="away-bar" style="height:10px;background:#1e293b;border-radius:6px;overflow:hidden;"><div id="away-fill" style="height:100%;width:0;background:#38bdf8;"></div></div>
+                <div class="away-list" id="away-list"></div>
+                <button class="big-btn primary" id="away-ok" style="display:none;width:100%;">확인</button>
+            </div>
+        </div>
+
+        <div id="end-modal" class="modal">
+            <div class="modal-card">
+                <div class="modal-title" id="end-title"></div>
+                <div class="modal-sub" id="end-msg"></div>
+                <button class="big-btn primary" id="end-restart">다시 시작</button>
+            </div>
+        </div>
+
+        <div id="dip-sheet" class="dip-sheet"></div>
+
+        <div id="toast" class="toast">알림 메시지</div>
+
+        <div class="side-panel" id="territory-panel" style="display:none;">
+            <div class="panel-title">
+                <span id="reg-name">🗺️ 땅을 선택하여 이름을 확인하세요</span>
+                <span style="display:flex;align-items:center;gap:6px;"><span id="reg-status-badge" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background:#334155;">중립(빈땅)</span><button id="panel-close-btn" style="background:transparent;border:none;color:#94a3b8;font-size:1.05rem;cursor:pointer;line-height:1;">✕</button></span>
+            </div>
+            <div id="reg-path" style="font-size:0.72rem;color:#94a3b8;margin:-2px 0 8px;"></div>
+            <div class="stat-grid">
+                <div class="stat-box">
+                    <div class="stat-label">초당 군사력 회복</div>
+                    <div class="stat-value" id="reg-military-rate">+0/s</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">초당 자금력 생산</div>
+                    <div class="stat-value" id="reg-money-rate">+0/s</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">초당 유지비 (자금력)</div>
+                    <div class="stat-value" id="reg-upkeep">0/s</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">🛡 원주민</div>
+                    <div class="stat-value" id="reg-natives">-</div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="action-btn success" id="btn-set-capital" disabled>🏛️ 이 땅에 수도 설립</button>
+                
+                <div class="sec-label">군사력</div>
+                <div class="act-row">
+                    <div class="act-name">사단 창설 <span class="act-sub" id="div-count">0/30</span></div>
+                    <button class="big-btn" id="btn-create-min" disabled>101</button>
+                    <button class="big-btn primary" id="btn-create-max" disabled>최대</button>
+                </div>
+            </div>
+
+            <div class="dev-box" id="dev-box">
+                <div class="dev-row"><span>⚔️ 군사개발 <b id="lv-mil">Lv 0</b></span><button class="action-btn" id="btn-up-mil">⬆</button></div>
+                <div class="dev-row"><span>💰 경제개발 <b id="lv-eco">Lv 0</b></span><button class="action-btn" id="btn-up-eco">⬆</button></div>
+            </div>
+        </div>
+
+        <!-- Floating Division Popup Card -->
+        <div class="division-popup" id="division-popup">
+            <div class="div-popup-header">
+                <div>
+                    <div class="div-popup-title" id="popup-div-title">사단 1</div>
+                    <div class="div-popup-location" id="popup-div-location">철원군 주둔</div>
+                </div>
+                <button style="background:transparent; border:none; color:#94a3b8; font-size:1.2rem; cursor:pointer;" id="popup-close-btn">✕</button>
+            </div>
+
+            <button class="btn-move-action" id="btn-popup-move">
+                → 이동 / 진군
+            </button>
+
+            <div class="div-popup-row">
+                <span style="font-size: 0.85rem; font-weight:700; color:#cbd5e1; white-space:nowrap;">+ 증원</span>
+                <div class="reinforce-btn-group">
+                    <button class="reinforce-sub-btn" id="btn-ref-10">+10</button>
+                    <button class="reinforce-sub-btn" id="btn-ref-50">+50</button>
+                    <button class="reinforce-sub-btn" id="btn-ref-all">전부 증원</button>
+                </div>
+            </div>
+
+            <div class="div-action-row" id="btn-popup-split">
+                <span>↳ 사단 분할</span>
+                <span>></span>
+            </div>
+
+            <div class="div-action-row danger" id="btn-popup-disband">
+                <span>⚑ 사단 해산</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ===== v18 설정값 =====
+        const MAX_MIL = 500;            // 군사력 최대
+        const MAX_MONEY = 10000;        // 자금력 최대
+        const MAX_DIV = 30;             // 사단 최대 수
+        const MIN_DIV_TROOPS = 101;     // 창설 시 최소 군사력 (원주민 100을 이기려면 101 이상)
+        const NATIVES = 100;            // 땅마다 원주민 수
+        const BATTLE_SECONDS = 5;       // 전투 시간(초, 1x 기준). 숫자가 큰 쪽이 이김
+        const LAND_UPKEEP = 0.9;        // 점령지 1곳당 초당 유지비 (수도 제외)
+        const DIV_UPKEEP_BASE = 1.5;    // 사단 1개당 초당 기본 유지비
+        const DIV_UPKEEP_PER_TROOP = 0.04; // 사단 군사력 1당 초당 유지비
+        const CAP_MIL = 3, CAP_MONEY = 20; // 수도 기본 생산 (초당)
+        const TILE_MAX_LV = 5, CAP_MAX_LV = 10;
+        const MOVE_SPEED = 0.15;        // 사단 이동 속도 (도/초)
+        const AI_THINK_SEC = 2;         // v25: AI가 판단하는 간격(게임 초)
+        const AI_MAX_DIV = 12;          // AI 세력당 최대 사단 수
+        const AI_INCOME_MULT = 1.0;     // AI 군사력 생산 배율 (난이도: 1보다 크면 어려움)
+        const NK_CELL_KM2 = 40;         // 북한 땅 1칸 목표 면적(km²) - 남한 읍면동 수준
+
+        const gameState = {
+            gameSpeed: 1,
+            selectedRegionId: null,
+            selectedDivisionId: null,
+            isMoveMode: false
+        };
+
+        // 경계 데이터를 못 받았을 때 쓰는 간이 지도 (남/북 모두)
+        const FALLBACK_REGIONS = [
+            { id: 'reg_seoul_gangnam', name: '서울특별시 강남구', milRate: 6, moneyRate: 10, bounds: [[37.47, 127.02], [37.55, 127.02], [37.55, 127.12], [37.47, 127.12]] },
+            { id: 'reg_seoul_jongno', name: '서울특별시 종로구/중구', milRate: 7, moneyRate: 12, bounds: [[37.54, 126.95], [37.61, 126.95], [37.61, 127.02], [37.54, 127.02]] },
+            { id: 'reg_seoul_mapo', name: '서울특별시 마포구/영등포구', milRate: 6, moneyRate: 10, bounds: [[37.49, 126.86], [37.57, 126.86], [37.57, 126.95], [37.49, 126.95]] },
+            { id: 'reg_incheon_center', name: '인천광역시 중구/남동구', milRate: 8, moneyRate: 12, bounds: [[37.38, 126.58], [37.52, 126.58], [37.52, 126.78], [37.38, 126.78]] },
+            { id: 'reg_gyeonggi_suwon', name: '경기도 수원시/화성시', milRate: 8, moneyRate: 12, bounds: [[37.12, 126.92], [37.38, 126.92], [37.38, 127.15], [37.12, 127.15]] },
+            { id: 'reg_gyeonggi_seongnam', name: '경기도 성남시/용인시', milRate: 8, moneyRate: 13, bounds: [[37.25, 127.08], [37.48, 127.08], [37.48, 127.28], [37.25, 127.28]] },
+            { id: 'reg_gyeonggi_goyang', name: '경기도 고양시/파주시', milRate: 7, moneyRate: 10, bounds: [[37.58, 126.70], [37.85, 126.70], [37.85, 126.95], [37.58, 126.95]] },
+            { id: 'reg_gyeonggi_uijeongbu', name: '경기도 의정부시/포천시', milRate: 6, moneyRate: 9, bounds: [[37.68, 126.98], [37.95, 126.98], [37.95, 127.25], [37.68, 127.25]] },
+            { id: 'reg_gangwon_chuncheon', name: '강원특별자치도 춘천시', milRate: 6, moneyRate: 8, bounds: [[37.75, 127.55], [38.05, 127.55], [38.05, 127.90], [37.75, 127.90]] },
+            { id: 'reg_gangwon_wonju', name: '강원특별자치도 원주시', milRate: 6, moneyRate: 9, bounds: [[37.20, 127.75], [37.48, 127.75], [37.48, 128.10], [37.20, 128.10]] },
+            { id: 'reg_gangwon_gangneung', name: '강원특별자치도 강릉시/동해시', milRate: 7, moneyRate: 10, bounds: [[37.55, 128.70], [37.92, 128.70], [37.92, 129.12], [37.55, 129.12]] },
+            { id: 'reg_gangwon_cheorwon', name: '강원특별자치도 철원군', milRate: 8, moneyRate: 6, bounds: [[38.02, 127.15], [38.30, 127.15], [38.30, 127.50], [38.02, 127.50]] },
+            { id: 'reg_chungnam_cheonan', name: '충청남도 천안시/아산시', milRate: 7, moneyRate: 11, bounds: [[36.70, 126.98], [36.98, 126.98], [36.98, 127.32], [36.70, 127.32]] },
+            { id: 'reg_chungbuk_cheongju', name: '충청북도 청주시', milRate: 7, moneyRate: 10, bounds: [[36.50, 127.35], [36.78, 127.35], [36.78, 127.65], [36.50, 127.65]] },
+            { id: 'reg_daejeon_sejong', name: '대전광역시 및 세종특별자치시', milRate: 8, moneyRate: 12, bounds: [[36.25, 127.22], [36.55, 127.22], [36.55, 127.50], [36.25, 127.50]] },
+            { id: 'reg_jeonbuk_jeonju', name: '전북특별자치도 전주시/군산시', milRate: 7, moneyRate: 10, bounds: [[35.70, 126.90], [35.98, 126.90], [35.98, 127.35], [35.70, 127.35]] },
+            { id: 'reg_gwangju_jeonnam', name: '광주광역시 및 전라남도 나주시/목포시', milRate: 8, moneyRate: 11, bounds: [[34.90, 126.60], [35.28, 126.60], [35.28, 127.00], [34.90, 127.00]] },
+            { id: 'reg_daegu_gyeongbuk', name: '대구광역시 및 경상북도 경산시/구미시', milRate: 9, moneyRate: 13, bounds: [[35.75, 128.42], [36.02, 128.42], [36.02, 128.78], [35.75, 128.78]] },
+            { id: 'reg_busan_center', name: '부산광역시 해운대구/중구', milRate: 10, moneyRate: 15, bounds: [[35.05, 128.92], [35.30, 128.92], [35.30, 129.22], [35.05, 129.22]] },
+            { id: 'reg_ulsan_city', name: '울산광역시', milRate: 8, moneyRate: 13, bounds: [[35.42, 129.15], [35.68, 129.15], [35.68, 129.45], [35.42, 129.45]] },
+            { id: 'reg_gyeongnam_changwon', name: '경상남도 창원시/진주시', milRate: 8, moneyRate: 11, bounds: [[35.10, 128.50], [35.35, 128.50], [35.35, 128.85], [35.10, 128.85]] },
+            { id: 'reg_gyeongbuk_pohang', name: '경상북도 포항시/경주시', milRate: 8, moneyRate: 12, bounds: [[35.85, 129.15], [36.18, 129.15], [36.18, 129.55], [35.85, 129.55]] },
+            { id: 'reg_jeju_island', name: '제주특별자치도 제주시/서귀포시', milRate: 6, moneyRate: 9, bounds: [[33.22, 126.20], [33.56, 126.20], [33.56, 126.88], [33.22, 126.88]] },
+            { id: 'reg_nk_pyongyang', name: '평양직할시', nk: true, bounds: [[38.85, 125.55], [39.22, 125.55], [39.22, 125.98], [38.85, 125.98]] },
+            { id: 'reg_nk_kaesong', name: '황해북도 개성시/사리원시', nk: true, bounds: [[37.82, 126.38], [38.12, 126.38], [38.12, 126.78], [37.82, 126.78]] },
+            { id: 'reg_nk_sinuiju', name: '평안북도 신의주시', nk: true, bounds: [[39.95, 124.25], [40.25, 124.25], [40.25, 124.60], [39.95, 124.60]] },
+            { id: 'reg_nk_hamhung', name: '함경남도 함흥시/원산시', nk: true, bounds: [[39.75, 127.35], [40.10, 127.35], [40.10, 127.75], [39.75, 127.75]] },
+            { id: 'reg_nk_chongjin', name: '함경북도 청진시', nk: true, bounds: [[41.60, 129.55], [42.00, 129.55], [42.00, 130.00], [41.60, 130.00]] }
+        ];
+
+        const divisions = [];
+        const ownedList = [];
+
+        // ===== v25: 세력 (플레이어 + AI) =====
+        const AI_DEFS = [
+            { name: '고구려', color: '#dc2626' }, { name: '백제', color: '#16a34a' },
+            { name: '신라', color: '#9333ea' }, { name: '가야', color: '#0d9488' },
+            { name: '발해', color: '#db2777' }, { name: '부여', color: '#a16207' },
+            { name: '탐라', color: '#84cc16' }
+        ];
+        const P = { id: 'player', name: '나', color: '#2563eb', isAI: false, ownedList: ownedList, capitalId: null, military: 0, money: 0, alive: true };
+        const FACTIONS = [P];
+        const FAC = { player: P };
+        Object.defineProperties(gameState, {
+            military: { get: () => P.military, set: v => { P.military = v; } },
+            money: { get: () => P.money, set: v => { P.money = v; } },
+            capitalRegionId: { get: () => P.capitalId, set: v => { P.capitalId = v; } },
+            landCount: { get: () => P.ownedList.length }
+        });
+        const myDivs = () => divisions.filter(d => d.owner === 'player');
+        let regionsData = [];
+        const regionById = new Map();
+        const getReg = id => regionById.get(id);
+        const dirty = new Set();
+        const markDirty = id => { if (id) dirty.add(id); };
+        let landFlag = false, gained = 0, lastLandToast = 0, lastBrokeToast = 0;
+        let leafMap = null;
+        let ren = null;   // 모든 벡터(땅/경계/이동선)가 같은 캔버스를 써야 클릭이 먹힘
+        const divisionMarkers = {};
+        const routeLines = {};
+        const $ = id => document.getElementById(id);
+
+        async function initGame() {
+            initLeafletFreeMap();
+            attachEventListeners();
+            updateUI();
+            await loadBoundaries();
+            $('loading').style.display = 'none';
+            const sv = loadSave();
+            const total = await chooseTotal(sv);
+            if (total === -1 && sv) { applySave(sv); await catchUp(sv); } else setupFactions(total);
+            setInterval(saveGame, 5000);
+            document.addEventListener('visibilitychange', () => { if (document.hidden) saveGame(); });
+            window.addEventListener('pagehide', saveGame);
+            updateUI();
+            lastTime = performance.now();
+            requestAnimationFrame(realtimeGameLoop);
+            setInterval(resourceTickLoop, 1000);
+            showToast(gameState.capitalRegionId ? '💾 저장된 게임을 이어합니다' : `땅 ${regionsData.length.toLocaleString()}개 · AI ${FACTIONS.length - 1}세력! 빈땅을 클릭해 수도를 설립하세요.`);
+        }
+
+        let lastBW = null;
+        function initLeafletFreeMap() {
+            leafMap = L.map('map-container', {
+                center: [38.0, 127.8],
+                zoom: 7,
+                minZoom: 6,
+                maxZoom: 14,
+                zoomControl: true,
+                attributionControl: false,
+                preferCanvas: true
+            });
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(leafMap);
+
+            leafMap.on('zoomend', () => {
+                const w = borderW();
+                if (w === lastBW) return;
+                lastBW = w;
+                regionsData.forEach(r => { if (r.poly) r.poly.setStyle(terrStyle(r)); });
+            });
+        }
+
+        // ===== 실제 행정구역 경계 로더 (도 > 시군구 > 읍면동) =====
+        async function fetchJSON(url, ms) {
+            const ctl = new AbortController();
+            const t = setTimeout(() => ctl.abort(), ms || 30000);
+            try {
+                const r = await fetch(url, { signal: ctl.signal });
+                if (!r.ok) throw new Error(r.status);
+                return await r.json();
+            } finally { clearTimeout(t); }
+        }
+        async function tryFetch(list) {
+            for (const u of list) {
+                try {
+                    const j = await fetchJSON(u);
+                    if (j && Array.isArray(j.features) && j.features.length > 5) return j;
+                } catch (e) { /* 다음 후보 시도 */ }
+            }
+            return null;
+        }
+        function skUrls(k) {
+            const n = { prov: 'provinces', mun: 'municipalities', sub: 'submunicipalities' }[k];
+            const j13 = 'https://cdn.jsdelivr.net/gh/southkorea/southkorea-maps@master/kostat/2013/json/';
+            const r13 = 'https://raw.githubusercontent.com/southkorea/southkorea-maps/master/kostat/2013/json/';
+            const j12 = 'https://cdn.jsdelivr.net/gh/southkorea/southkorea-maps@master/kostat/2012/json/';
+            return ['data/' + k + '.json',
+                j13 + 'skorea_' + n + '_geo_simple.json', r13 + 'skorea_' + n + '_geo_simple.json',
+                j13 + 'skorea-' + n + '-geo-simple.json', j12 + n + '-geo-simple.json'];
+        }
+        async function loadNK() {
+            const local = await tryFetch(['data/nk.json']);
+            if (local) return { gj: local, lv: '군·구역' };
+            for (const lv of ['ADM3', 'ADM2']) {
+                try {
+                    const m = await fetchJSON('https://www.geoboundaries.org/api/current/gbOpen/PRK/' + lv + '/', 20000);
+                    const r = Array.isArray(m) ? m[0] : m;
+                    const j = await tryFetch([r.simplifiedGeometryGeoJSON, r.gjDownloadURL].filter(Boolean));
+                    if (j) return { gj: j, lv: lv };
+                } catch (e) { /* 다음 레벨 */ }
+            }
+            return null;
+        }
+
+        // ===== 지오메트리 도우미 =====
+        function polys(g) { return g.type === 'Polygon' ? [g.coordinates] : g.coordinates; }
+        function bbox(g) {
+            let a = 1e9, b = 1e9, c = -1e9, d = -1e9;
+            polys(g).forEach(p => p[0].forEach(q => {
+                if (q[0] < a) a = q[0]; if (q[0] > c) c = q[0];
+                if (q[1] < b) b = q[1]; if (q[1] > d) d = q[1];
+            }));
+            return [a, b, c, d];
+        }
+        function inRing(x, y, ring) {
+            let c = false;
+            for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                const a = ring[i], b = ring[j];
+                if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c;
+            }
+            return c;
+        }
+        function inGeom(x, y, g) {
+            for (const p of polys(g)) {
+                if (inRing(x, y, p[0])) {
+                    let hole = false;
+                    for (let i = 1; i < p.length; i++) if (inRing(x, y, p[i])) { hole = true; break; }
+                    if (!hole) return true;
+                }
+            }
+            return false;
+        }
+        function repPoint(g) {
+            let best = null, ba = -1;
+            polys(g).forEach(p => {
+                const b = bbox({ type: 'Polygon', coordinates: p }), a = (b[2] - b[0]) * (b[3] - b[1]);
+                if (a > ba) { ba = a; best = p; }
+            });
+            const r = best[0], bg = { type: 'Polygon', coordinates: best };
+            let A = 0, cx = 0, cy = 0;
+            for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+                const f = r[j][0] * r[i][1] - r[i][0] * r[j][1];
+                A += f; cx += (r[j][0] + r[i][0]) * f; cy += (r[j][1] + r[i][1]) * f;
+            }
+            if (A) { cx /= 3 * A; cy /= 3 * A; if (inGeom(cx, cy, bg)) return [cx, cy]; }
+            const b = bbox({ type: 'Polygon', coordinates: best });
+            for (let i = 1; i < 8; i++) for (let j = 1; j < 8; j++) {
+                const x = b[0] + (b[2] - b[0]) * i / 8, y = b[1] + (b[3] - b[1]) * j / 8;
+                if (inGeom(x, y, bg)) return [x, y];
+            }
+            return [r[0][0], r[0][1]];
+        }
+
+        // ===== v18: 북한 땅 세분화 (큰 군·구역을 남한 읍면동 크기의 칸으로 쪼갬) =====
+        const KX = Math.cos(40 * Math.PI / 180);   // 경도 보정
+        const KM2_PER_DEG2 = 111.32 * 111.32;
+        function mulberry32(a) {
+            return function () {
+                a |= 0; a = a + 0x6D2B79F5 | 0;
+                let t = Math.imul(a ^ a >>> 15, 1 | a);
+                t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        function areaScaled(ring) {
+            let A = 0;
+            for (let i = 0, j = ring.length - 1; i < ring.length; j = i++)
+                A += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];
+            return Math.abs(A) / 2;
+        }
+        // 점 a 쪽(a가 b보다 가까운 쪽)만 남기는 반평면 자르기 (Sutherland–Hodgman)
+        function clipHalf(poly, ax, ay, bx, by) {
+            const dx = bx - ax, dy = by - ay, mx = (ax + bx) / 2, my = (ay + by) / 2;
+            const out = [];
+            for (let i = 0; i < poly.length; i++) {
+                const p = poly[i], q = poly[(i + 1) % poly.length];
+                const fp = (p[0] - mx) * dx + (p[1] - my) * dy, fq = (q[0] - mx) * dx + (q[1] - my) * dy;
+                if (fp <= 0) out.push(p);
+                if ((fp < 0 && fq > 0) || (fp > 0 && fq < 0)) {
+                    const t = fp / (fp - fq);
+                    out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]);
+                }
+            }
+            return out;
+        }
+        // 한 덩어리(폴리곤)의 바깥 링을 여러 칸으로 분할. 쪼갤 필요가 없으면 null
+        function splitRing(ring0, rng) {
+            let ring = ring0.slice();
+            const f = ring[0], l = ring[ring.length - 1];
+            if (f[0] === l[0] && f[1] === l[1]) ring.pop();
+            if (ring.length < 3) return null;
+            const sc = ring.map(p => [p[0] * KX, p[1]]);
+            const areaKm2 = areaScaled(sc) * KM2_PER_DEG2;
+            const n = Math.round(areaKm2 / NK_CELL_KM2);
+            if (n < 2) return null;
+            let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+            sc.forEach(p => { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; });
+            const s = Math.sqrt(areaScaled(sc) / n / 0.866);
+            const seeds = [];
+            let row = 0;
+            for (let y = y0 + s * 0.4; y < y1; y += s * 0.866, row++) {
+                for (let x = x0 + (row % 2 ? s : s * 0.5); x < x1; x += s) {
+                    const px = x + (rng() - 0.5) * s * 0.5, py = y + (rng() - 0.5) * s * 0.5;
+                    if (inRing(px, py, sc)) seeds.push([px, py]);
+                }
+            }
+            if (seeds.length < 2) return null;
+            const cells = [];
+            for (let i = 0; i < seeds.length; i++) {
+                const sx = seeds[i][0], sy = seeds[i][1];
+                const order = [];
+                for (let j = 0; j < seeds.length; j++) if (j !== i)
+                    order.push([j, (seeds[j][0] - sx) ** 2 + (seeds[j][1] - sy) ** 2]);
+                order.sort((a, b) => a[1] - b[1]);
+                let cell = sc;
+                const maxR = c => { let m = 0; for (const p of c) { const d = (p[0] - sx) ** 2 + (p[1] - sy) ** 2; if (d > m) m = d; } return Math.sqrt(m); };
+                let R = maxR(cell);
+                for (const [j, d2] of order) {
+                    if (Math.sqrt(d2) > 2 * R) break;
+                    cell = clipHalf(cell, sx, sy, seeds[j][0], seeds[j][1]);
+                    if (cell.length < 3) break;
+                    R = maxR(cell);
+                }
+                if (cell.length < 3 || areaScaled(cell) < 1e-9) continue;
+                const out = cell.map(p => [p[0] / KX, p[1]]);
+                out.push(out[0]);
+                cells.push(out);
+            }
+            return cells.length ? cells : null;
+        }
+        function subdivideGeom(geom, seed) {
+            const rng = mulberry32(seed);
+            const out = [];
+            polys(geom).forEach(p => {
+                const cells = splitRing(p[0], rng);
+                if (cells) cells.forEach(r => out.push({ type: 'Polygon', coordinates: [r] }));
+                else out.push({ type: 'Polygon', coordinates: p });
+            });
+            return out;
+        }
+
+        const usedIds = new Set();
+        function addRegion(geom, id, name, path, lvl, mil, money) {
+            if (!geom || !geom.coordinates) return;
+            let uid = id, dup = 1;
+            while (usedIds.has(uid)) uid = id + '_' + (dup++);
+            usedIds.add(uid); id = uid;
+            const rp = repPoint(geom);
+            regionsData.push({ id: id, name: name, path: path, lvl: lvl, owner: 'neutral',
+                milRate: mil, moneyRate: money, milLv: 0, ecoLv: 0, natives: NATIVES,
+                lat: rp[1], lng: rp[0], geom: geom, bb: bbox(geom), nb: [], i: regionsData.length });
+        }
+
+        function boxToGeom(bounds) {
+            const ring = bounds.map(p => [p[1], p[0]]); ring.push(ring[0]);
+            return { type: 'Polygon', coordinates: [ring] };
+        }
+
+        async function loadBoundaries() {
+            const msg = t => { $('loading-msg').textContent = t; };
+            msg('도 · 시군구 · 읍면동 경계를 내려받는 중입니다.\n(처음에는 10~20초 걸릴 수 있어요)');
+            const [prov, mun, sub, nk] = await Promise.all([
+                tryFetch(skUrls('prov')), tryFetch(skUrls('mun')), tryFetch(skUrls('sub')), loadNK()
+            ]);
+            const P = f => f.properties || {};
+            const codeOf = f => String(P(f).code || P(f).CODE || '');
+            const nameOf = f => String(P(f).name || P(f).NAME || '');
+            const pN = {}, mN = {};
+            if (prov) prov.features.forEach(f => { pN[codeOf(f).slice(0, 2)] = nameOf(f); });
+            if (mun) mun.features.forEach(f => { mN[codeOf(f).slice(0, 5)] = nameOf(f); });
+
+            if (sub) {
+                sub.features.forEach(f => {
+                    const c = codeOf(f), n = nameOf(f);
+                    const t = /읍$/.test(n) ? '읍' : /면$/.test(n) ? '면' : '동';
+                    const rate = t === '동' ? [6, 6] : t === '읍' ? [6, 5] : [6, 4];
+                    const path = [pN[c.slice(0, 2)], mN[c.slice(0, 5)], n].filter(Boolean).join(' ') + ' (' + t + ')';
+                    addRegion(f.geometry, 'sk_' + c, n || c, path, t, rate[0], rate[1]);
+                });
+            } else {
+                msg('읍면동 경계를 불러오지 못해 간이 지도로 시작합니다.');
+                FALLBACK_REGIONS.filter(r => !r.nk).forEach(r =>
+                    addRegion(boxToGeom(r.bounds), r.id, r.name, r.name + ' (간이)', '구역', r.milRate, r.moneyRate));
+                showToast('⚠️ 읍면동 경계 로드 실패 → 간이 지도로 시작');
+            }
+
+            // 북한: 군·구역 단위를 남한 읍면동 크기로 다시 쪼갬
+            let nkList;
+            if (nk) {
+                nkList = nk.gj.features.map((f, i) => ({
+                    name: String(P(f).shapeName || P(f).name || P(f).NAME || ('북한 지역 ' + (i + 1))), geom: f.geometry }));
+            } else {
+                nkList = FALLBACK_REGIONS.filter(r => r.nk).map(r => ({ name: r.name, geom: boxToGeom(r.bounds) }));
+            }
+            nkList = nkList.filter(o => o.geom && o.geom.coordinates);
+            nkList.forEach(o => { const b = bbox(o.geom); o.area = (b[2] - b[0]) * (b[3] - b[1]); });
+            nkList.sort((a, b) => b.area - a.area);   // 큰 땅 먼저, 작은 땅(특별시 등)이 위에 그려짐
+            const lvl = nk ? nk.lv : '간이';
+            for (let i = 0; i < nkList.length; i++) {
+                const o = nkList[i];
+                const parts = subdivideGeom(o.geom, 1000 + i);
+                parts.forEach((g, k) => {
+                    const nm = parts.length > 1 ? o.name + ' ' + (k + 1) : o.name;
+                    addRegion(g, 'nk_' + i + '_' + k, nm, '북한 · ' + o.name + ' (' + lvl + ')' + (parts.length > 1 ? ' ' + (k + 1) + '/' + parts.length : ''),
+                        '북', 6, 5);
+                });
+                if (i % 8 === 7) {
+                    msg('북한 땅을 세분화하는 중… (' + (i + 1) + '/' + nkList.length + ')');
+                    await new Promise(r => setTimeout(r, 0));
+                }
+            }
+
+            msg('땅 사이의 연결 관계를 계산하는 중… (' + regionsData.length.toLocaleString() + '개)');
+            await new Promise(r => setTimeout(r, 30));
+            buildAdjacency();
+            msg('지도를 그리는 중…');
+            await new Promise(r => setTimeout(r, 30));
+            buildLayers(prov, mun);
+        }
+
+        // ===== v18: 인접 땅 계산 (래스터 방식) =====
+        function buildAdjacency() {
+            // 경계선 위의 점을 약 250m 격자에 찍어서, 같은 격자에 닿은 땅끼리 이웃으로 연결
+            const Q = 0.0025, STEP = 0.00125;
+            const nbs = regionsData.map(() => new Set());
+            const link = (a, b) => { nbs[a].add(b); nbs[b].add(a); };
+            const cellMap = new Map();
+            const touch = (x, y, idx) => {
+                const key = Math.floor(x / Q) * 100000 + Math.floor(y / Q);
+                const a = cellMap.get(key);
+                if (!a) cellMap.set(key, [idx]);
+                else if (a.indexOf(idx) < 0) a.push(idx);
+            };
+            regionsData.forEach((r, idx) => {
+                polys(r.geom).forEach(p => p.forEach(ring => {
+                    for (let k = 0; k < ring.length; k++) {
+                        const A = ring[k], B = ring[(k + 1) % ring.length];
+                        touch(A[0], A[1], idx);
+                        const m = Math.min(2000, Math.ceil(Math.max(Math.abs(B[0] - A[0]), Math.abs(B[1] - A[1])) / STEP));
+                        for (let t = 1; t < m; t++) touch(A[0] + (B[0] - A[0]) * t / m, A[1] + (B[1] - A[1]) * t / m, idx);
+                    }
+                }));
+            });
+            cellMap.forEach(list => {
+                if (list.length < 2) return;
+                const L2 = list.length > 14 ? list.slice(0, 14) : list;
+                for (let i = 0; i < L2.length; i++) for (let j = i + 1; j < L2.length; j++) link(L2[i], L2[j]);
+            });
+            const dd = (a, b) => Math.hypot((a.lng - b.lng) * KX, a.lat - b.lat);
+            // 이웃이 하나도 없는 땅 → 가장 가까운 땅 2곳과 연결
+            regionsData.forEach((r, i) => {
+                if (nbs[i].size > 0) return;
+                const cand = [];
+                regionsData.forEach((o, j) => { if (j !== i) cand.push([j, dd(r, o)]); });
+                cand.sort((a, b) => a[1] - b[1]);
+                cand.slice(0, 2).forEach(c => link(i, c[0]));
+            });
+            // 섬 등 끊긴 덩어리 → 가장 가까운 땅과 뱃길로 연결
+            const n = regionsData.length;
+            for (let guard = 0; guard < 500; guard++) {
+                const comp = new Int32Array(n).fill(-1);
+                const sizes = [];
+                for (let s0 = 0; s0 < n; s0++) {
+                    if (comp[s0] >= 0) continue;
+                    const id = sizes.length; let cnt = 0; const st = [s0]; comp[s0] = id;
+                    while (st.length) { const u = st.pop(); cnt++; nbs[u].forEach(v => { if (comp[v] < 0) { comp[v] = id; st.push(v); } }); }
+                    sizes.push(cnt);
+                }
+                if (sizes.length <= 1) break;
+                let small = 0;
+                for (let c = 1; c < sizes.length; c++) if (sizes[c] < sizes[small]) small = c;
+                let bi = -1, bj = -1, bd = 1e9;
+                for (let i = 0; i < n; i++) if (comp[i] === small)
+                    for (let j = 0; j < n; j++) if (comp[j] !== small) {
+                        const d = dd(regionsData[i], regionsData[j]);
+                        if (d < bd) { bd = d; bi = i; bj = j; }
+                    }
+                link(bi, bj);
+            }
+            regionsData.forEach((r, i) => { r.nb = Array.from(nbs[i]); });
+        }
+
+        // ===== v18: 점령한 땅만 통과하는 길찾기 =====
+        function findRoute(startId, target, who) {
+            who = who || 'player';
+            const start = getReg(startId);
+            if (!start) return null;
+            const n = regionsData.length;
+            const dist = new Float64Array(n).fill(Infinity);
+            const prev = new Int32Array(n).fill(-1);
+            const dd = (a, b) => Math.hypot((a.lng - b.lng) * KX, a.lat - b.lat);
+            const heap = [];   // [dist, idx]
+            const push = (d, i) => {
+                heap.push([d, i]);
+                let c = heap.length - 1;
+                while (c > 0) { const p = (c - 1) >> 1; if (heap[p][0] <= heap[c][0]) break; [heap[p], heap[c]] = [heap[c], heap[p]]; c = p; }
+            };
+            const pop = () => {
+                const top = heap[0], last = heap.pop();
+                if (heap.length) {
+                    heap[0] = last;
+                    let c = 0;
+                    for (;;) {
+                        let l = 2 * c + 1, r = l + 1, m = c;
+                        if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
+                        if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
+                        if (m === c) break;
+                        [heap[m], heap[c]] = [heap[c], heap[m]]; c = m;
+                    }
+                }
+                return top;
+            };
+            dist[start.i] = 0; push(0, start.i);
+            while (heap.length) {
+                const [d, u] = pop();
+                if (d > dist[u]) continue;
+                const ru = regionsData[u];
+                for (const v of ru.nb) {
+                    const rv = regionsData[v];
+                    if (rv.owner !== who) continue;   // 내 땅만 통과 가능
+                    const nd = d + dd(ru, rv);
+                    if (nd < dist[v]) { dist[v] = nd; prev[v] = u; push(nd, v); }
+                }
+            }
+            const build = end => { const p = []; for (let c = end; c !== -1; c = prev[c]) p.push(regionsData[c].id); return p.reverse(); };
+            if (target.owner === who) {
+                if (dist[target.i] === Infinity) return null;
+                return build(target.i);
+            }
+            // 빈땅: 내 땅과 맞닿아 있고 거기까지 내 땅으로 갈 수 있을 때만 한 칸 진군
+            let best = -1, bd = Infinity;
+            for (const v of target.nb) {
+                if (dist[v] === Infinity || regionsData[v].owner !== who) continue;
+                const c = dist[v] + dd(regionsData[v], target);
+                if (c < bd) { bd = c; best = v; }
+            }
+            if (best < 0) return null;
+            return build(best).concat([target.id]);
+        }
+
+        function buildLayers(prov, mun) {
+            ren = L.canvas({ padding: 0.4 });
+            regionsData.forEach(reg => {
+                const ll = L.GeoJSON.coordsToLatLngs(reg.geom.coordinates, reg.geom.type === 'Polygon' ? 1 : 2);
+                reg.poly = L.polygon(ll, Object.assign({ renderer: ren }, terrStyle(reg))).addTo(leafMap);
+                reg.poly.on('click', () => handleRegionClick(reg.id));
+                regionById.set(reg.id, reg);
+            });
+            if (mun) L.geoJSON(mun, { renderer: ren, interactive: false, style: { fill: false, color: '#cbd5e1', weight: 1.1, opacity: 0.75 } }).addTo(leafMap);
+            if (prov) L.geoJSON(prov, { renderer: ren, interactive: false, style: { fill: false, color: '#f8fafc', weight: 2.4, opacity: 0.95 } }).addTo(leafMap);
+        }
+
+        function borderW() {
+            const z = leafMap ? leafMap.getZoom() : 7;
+            return z >= 11 ? 1 : z >= 10 ? 0.7 : z >= 9 ? 0.4 : 0.15;
+        }
+
+        // 소유자 색: 내 땅 = 파랑, 수도 = 주황, 선택 = 노랑, 빈땅 = 어두운 회청색
+        function terrStyle(reg) {
+            const w = borderW();
+            if (reg.id === gameState.selectedRegionId) return { fillColor: '#fbbf24', color: '#f59e0b', weight: 2.5, fillOpacity: 0.75, opacity: 1 };
+            const f = FAC[reg.owner];
+            if (f) {
+                const cap = isCap(reg);
+                if (!f.isAI) return cap ? { fillColor: '#f97316', color: '#fde68a', weight: 2, fillOpacity: 0.8, opacity: 1 }
+                                        : { fillColor: '#2563eb', color: '#bfdbfe', weight: Math.max(w, 0.6), fillOpacity: 0.72, opacity: 0.9 };
+                return cap ? { fillColor: f.color, color: '#fde68a', weight: 2.5, fillOpacity: 0.92, opacity: 1 }
+                           : { fillColor: f.color, color: '#f1f5f9', weight: Math.max(w, 0.6), fillOpacity: 0.7, opacity: 0.75 };
+            }
+            return { fillColor: '#1e293b', color: '#64748b', weight: w, fillOpacity: 0.28, opacity: 0.8 };
+        }
+
+        function updateMapTerritoryStyles() {
+            dirty.forEach(id => {
+                const reg = getReg(id);
+                if (!reg || !reg.poly) return;
+                reg.poly.setStyle(terrStyle(reg));
+                if (reg.id === gameState.selectedRegionId || isCap(reg)) reg.poly.bringToFront();
+            });
+            dirty.clear();
+        }
+
+        function gainLand(reg, ownerId) {
+            ownerId = ownerId || 'player';
+            if (!reg || reg.owner !== 'neutral') return;
+            reg.owner = ownerId;
+            FAC[ownerId].ownedList.push(reg);
+            markDirty(reg.id);
+            landFlag = true;
+            if (ownerId === 'player') gained++;
+        }
+
+        function flushLand() {
+            if (!landFlag) return;
+            landFlag = false;
+            updateMapTerritoryStyles();
+            updateUI();
+            const now = performance.now();
+            if (gained > 0 && now - lastLandToast > 1200) {
+                showToast(`✨ 영토 +${gained} (총 ${gameState.landCount.toLocaleString()}개)`);
+                gained = 0;
+                lastLandToast = now;
+            }
+        }
+
+        // ===== 경제 계산 =====
+        const isCap = r => { const f = FAC[r.owner]; return !!f && f.capitalId === r.id; };
+        const maxLv = r => isCap(r) ? CAP_MAX_LV : TILE_MAX_LV;
+        function milOut(r) { return isCap(r) ? CAP_MIL * (1 + 0.5 * r.milLv) : r.milRate * 0.01 * (1 + 0.6 * r.milLv); }
+        function moneyOut(r) { return isCap(r) ? CAP_MONEY * (1 + 0.5 * r.ecoLv) : r.moneyRate * 0.25 * (1 + 0.6 * r.ecoLv); }
+        function landUpkeep(r) { return isCap(r) ? 0 : LAND_UPKEEP; }
+        function divUpkeep(d) { return DIV_UPKEEP_BASE + DIV_UPKEEP_PER_TROOP * d.troops; }
+        function upCost(r, kind) {
+            const lv = kind === 'mil' ? r.milLv : r.ecoLv;
+            return (kind === 'mil' ? 150 : 200) * (lv + 1) * (isCap(r) ? 2 : 1);
+        }
+        function computeEconomy(f) {
+            f = f || P;
+            let mil = 0, money = 0, landUp = 0, divUp = 0;
+            f.ownedList.forEach(r => { mil += milOut(r); money += moneyOut(r); landUp += landUpkeep(r); });
+            divisions.forEach(d => { if (d.owner === f.id) divUp += divUpkeep(d); });
+            return { mil, money, landUp, divUp, net: money - landUp - divUp };
+        }
+        const fmt = n => Math.abs(n) >= 100 ? Math.round(n).toLocaleString() : (Math.round(n * 100) / 100).toString();
+        const sgn = n => (n >= 0 ? '+' : '') + fmt(n);
+
+        function resourceTickLoop() {
+            if (gameState.gameSpeed === 0) return;
+            regenNatives(gameState.gameSpeed);
+            if (!gameState.capitalRegionId) return;
+            const mult = gameState.gameSpeed;
+            FACTIONS.forEach(f => { if (f.alive && f.capitalId) tickFaction(f, mult); });
+            FACTIONS.forEach(f => {
+                if (!f.isAI || !f.alive) return;
+                f.think += mult;
+                if (f.think >= AI_THINK_SEC) { f.think = 0; aiThink(f); }
+            });
+            renderDivisionLeafletMarkers();
+            updateBoard();
+            updateUI();
+        }
+
+        function regenNatives(mult) {
+            nativesDamaged.forEach(id => {
+                const r = getReg(id);
+                if (!r || r.owner !== 'neutral') { nativesDamaged.delete(id); return; }
+                if (divisions.some(d => d.battle === id)) return;
+                r.natives = Math.min(NATIVES, r.natives + 2 * mult);
+                if (r.natives >= NATIVES) nativesDamaged.delete(id);
+            });
+        }
+
+        function tickFaction(f, mult) {
+            const e = computeEconomy(f);
+            f.military = Math.min(MAX_MIL, f.military + e.mil * mult * (f.isAI ? AI_INCOME_MULT : 1));
+            let m = f.money + e.net * mult;
+            const lord = FAC[DIP.vassal[f.id]];
+            if (lord && lord.alive && e.money > 0) { const tr = e.money * TRIBUTE * mult; m -= tr; lord.money = Math.min(MAX_MONEY, lord.money + tr); }
+            if (m < 0) {
+                m = 0;
+                let any = false;
+                // 자금이 바닥나면 사단 군사력이 이탈
+                divisions.forEach(d => { if (d.owner === f.id) { d.troops = Math.max(1, d.troops - mult); any = true; } });
+                const now = performance.now();
+                if (!f.isAI && any && now - lastBrokeToast > 4000) {
+                    showToast('⚠️ 자금력 부족! 유지비를 못 내서 사단 군사력이 줄어듭니다');
+                    lastBrokeToast = now;
+                }
+            }
+            f.money = Math.min(MAX_MONEY, m);
+        }
+
+        // ===== 사단 이동 / 렌더 =====
+        function renderDivisionLeafletMarkers() {
+            Object.keys(divisionMarkers).forEach(id => {
+                if (!divisions.find(d => d.id === id)) {
+                    leafMap.removeLayer(divisionMarkers[id]);
+                    delete divisionMarkers[id];
+                }
+            });
+            divisions.forEach(div => {
+                const isSel = gameState.selectedDivisionId === div.id;
+                const tv = Math.ceil(div.troops), key = tv + '|' + isSel;
+                let m = divisionMarkers[div.id];
+                const mkIcon = () => L.divIcon({
+                    html: `<div class="div-mark ${isSel ? 'selected' : ''} ${div.owner === 'player' ? '' : 'ai'}" style="--fc:${(FAC[div.owner] || P).color}">` +
+                        `<svg width="30" height="21" viewBox="0 0 30 21">` +
+                        `<text class="mk-xx" x="15" y="6" text-anchor="middle">XX</text>` +
+                        `<rect class="mk-box" x="3" y="8" width="24" height="12" rx="1.5"/>` +
+                        `<line class="mk-x" x1="3" y1="8" x2="27" y2="20"/><line class="mk-x" x1="27" y1="8" x2="3" y2="20"/>` +
+                        `</svg><div class="div-mark-count">${tv}</div></div>`,
+                    className: 'div-leaflet-marker', iconSize: [36, 38], iconAnchor: [18, 14]
+                });
+                if (m) {
+                    m.setLatLng([div.curLat, div.curLng]);
+                    if (m._key !== key) { m.setIcon(mkIcon()); m._key = key; }
+                } else {
+                    m = L.marker([div.curLat, div.curLng], { icon: mkIcon(), zIndexOffset: 1000 }).addTo(leafMap);
+                    m._key = key;
+                    m.on('click', e => { L.DomEvent.stopPropagation(e); handleDivisionClick(div.id); });
+                    divisionMarkers[div.id] = m;
+                }
+            });
+        }
+
+        function updateRouteLine(div) {
+            if (div.owner !== 'player' || catchingUp) return;
+            if (!div.queue.length) {
+                if (routeLines[div.id]) { leafMap.removeLayer(routeLines[div.id]); delete routeLines[div.id]; }
+                return;
+            }
+            const pts = [[div.curLat, div.curLng]].concat(div.queue.map(id => { const r = getReg(id); return [r.lat, r.lng]; }));
+            if (routeLines[div.id]) routeLines[div.id].setLatLngs(pts);
+            else routeLines[div.id] = L.polyline(pts, { color: '#fb923c', weight: 2.5, dashArray: '6 6', opacity: 0.9, interactive: false, renderer: ren }).addTo(leafMap);
+        }
+
+        // ===== v19: 원주민과의 전투 =====
+        const nativesDamaged = new Set();
+        const nativeMarkers = {};
+        function removeDivision(d) {
+            const i = divisions.indexOf(d);
+            if (i >= 0) divisions.splice(i, 1);
+            if (routeLines[d.id]) { leafMap.removeLayer(routeLines[d.id]); delete routeLines[d.id]; }
+            if (gameState.selectedDivisionId === d.id) { gameState.selectedDivisionId = null; $('division-popup').style.display = 'none'; }
+            if (!catchingUp) renderDivisionLeafletMarkers();
+        }
+        function startBattle(div, reg) {
+            const S = Math.ceil(div.troops), N = Math.ceil(reg.natives);
+            const win = S > N;                       // 숫자가 큰 쪽이 이김 (같으면 원주민 승)
+            const m = Math.min(S, N);                // 양쪽 모두 작은 쪽 숫자만큼 줄어듦
+            div.battle = reg.id; div.pending = null; div.status = '전투 중';
+            div.bt = { t: 0, S0: S, N0: N, Send: win ? S - N : 0, Nend: win ? 0 : Math.max(1, N - m), win: win };
+            nativesDamaged.add(reg.id);
+            if (div.owner === 'player') showToast(`⚔️ ${reg.name} 전투 시작! 사단 ${S} vs 원주민 ${N}`);
+        }
+        function battleStep(dt) {
+            // 다른 사단이 싸우는 중이라 기다리던 사단 처리
+            divisions.forEach(d => {
+                if (!d.pending) return;
+                const reg = getReg(d.pending);
+                if (!reg || reg.owner !== 'neutral') { d.pending = null; d.status = '주둔'; return; }
+                if (!divisions.some(o => o.battle === reg.id)) startBattle(d, reg);
+            });
+            const fighters = divisions.filter(d => d.battle);
+            if (!fighters.length) return;
+            const dead = [];
+            fighters.forEach(div => {
+                const reg = getReg(div.battle), bt = div.bt;
+                if (!reg || reg.owner !== 'neutral' || !bt) { div.battle = null; div.bt = null; div.status = '주둔'; return; }
+                bt.t += dt;
+                const p = Math.min(1, bt.t / BATTLE_SECONDS);
+                div.troops = bt.S0 + (bt.Send - bt.S0) * p;
+                reg.natives = bt.N0 + (bt.Nend - bt.N0) * p;
+                if (p < 1) return;
+                div.battle = null; div.bt = null;
+                if (bt.win) {
+                    div.troops = Math.max(1, bt.Send); div.status = '주둔';
+                    reg.natives = 0;
+                    gainLand(reg, div.owner);
+                    if (div.owner === 'player') showToast(`✨ 전투 승리! 점령: ${reg.name} (남은 병력 ${Math.ceil(div.troops)})`);
+                } else {
+                    reg.natives = bt.Nend;
+                    dead.push(div);
+                }
+            });
+            dead.forEach(d => { if (d.owner === 'player') showToast(`💀 ${d.name} 전멸… 원주민 ${Math.ceil(getReg(d.regionId).natives)} 남음`); removeDivision(d); });
+            if (gameState.selectedDivisionId && divisions.some(d => d.id === gameState.selectedDivisionId && d.battle)) refreshPopup();
+        }
+        function updateNativeMarkers() {
+            const active = new Set(divisions.filter(d => d.battle).map(d => d.battle));
+            Object.keys(nativeMarkers).forEach(id => {
+                if (!active.has(id)) { leafMap.removeLayer(nativeMarkers[id]); delete nativeMarkers[id]; }
+            });
+            active.forEach(id => {
+                const reg = getReg(id), v = Math.ceil(reg.natives);
+                const icon = () => L.divIcon({ html: `<div class="native-badge">🛡${v}</div>`, className: 'div-leaflet-marker', iconSize: [44, 22], iconAnchor: [-20, 11] });
+                let m = nativeMarkers[id];
+                if (!m) { m = L.marker([reg.lat, reg.lng], { icon: icon(), zIndexOffset: 900, interactive: false }).addTo(leafMap); m._v = v; nativeMarkers[id] = m; }
+                else if (m._v !== v) { m.setIcon(icon()); m._v = v; }
+            });
+        }
+
+        let lastTime = performance.now();
+        function stepWorld(delta, speed) {
+            divisions.slice().forEach(div => {
+                if (!div.queue.length || divisions.indexOf(div) < 0) return;
+                const reg = getReg(div.queue[0]);
+                const dLat = reg.lat - div.curLat, dLng = (reg.lng - div.curLng) * KX;
+                const dist = Math.hypot(dLat, dLng);
+                const step = MOVE_SPEED * speed * delta;
+                if (dist <= step) {
+                    div.curLat = reg.lat; div.curLng = reg.lng;
+                    div.regionId = reg.id;
+                    div.queue.shift();
+                    if (!div.queue.length) {
+                        div.status = '주둔';
+                        if (offlineTruce && div.owner !== 'player' && reg.owner === 'player') {   // 자리 비운 동안 휴전: 내 땅은 공격하지 않고 철수
+                            const rf = FAC[div.owner];
+                            if (rf) rf.military = Math.min(MAX_MIL, rf.military + div.troops);
+                            removeDivision(div);
+                            return;
+                        }
+                        if (reg.owner === 'neutral') {
+                            if (reg.natives > 0) {
+                                if (divisions.some(o => o !== div && o.battle === reg.id)) { div.pending = reg.id; div.status = '대기'; }
+                                else startBattle(div, reg);
+                            } else {
+                                gainLand(reg, div.owner);
+                                if (div.owner === 'player') showToast(`✨ 영토 점령 성공: ${reg.name}!`);
+                            }
+                        } else if (reg.owner !== div.owner) {
+                            attackEnemy(div, reg);
+                        }
+                        if (!catchingUp) flushLand();
+                        if (gameState.selectedDivisionId === div.id) refreshPopup();
+                    }
+                } else {
+                    div.curLat += dLat / dist * step;
+                    div.curLng += dLng / dist * step / KX;
+                }
+                updateRouteLine(div);
+            });
+            battleStep(delta * speed);
+            gameClock += delta * speed;
+            stepEnvoys();
+        }
+
+        function realtimeGameLoop(time) {
+            const delta = Math.min(0.1, (time - lastTime) / 1000);
+            lastTime = time;
+
+            if (gameState.gameSpeed > 0) {
+                stepWorld(delta, gameState.gameSpeed);
+                flushLand();
+                renderDivisionLeafletMarkers();
+                updateNativeMarkers();
+            }
+            requestAnimationFrame(realtimeGameLoop);
+        }
+
+        // 사단 이동 명령: 내 땅을 통해서만 이동, 빈땅/적땅은 내 땅과 맞닿은 곳 한 칸씩만 진군
+        function moveDivision(divId, targetRegionId, silent) {
+            const div = divisions.find(d => d.id === divId);
+            const target = getReg(targetRegionId);
+            if (!div || !target) return false;
+            let origin = div.regionId;
+            if (div.queue.length) {
+                const q0 = getReg(div.queue[0]);
+                if (q0 && q0.owner === div.owner) origin = q0.id;
+            }
+            if (origin === target.id && !div.queue.length) {
+                if (!silent) showToast(div.battle ? '이미 이 땅에서 전투 중입니다' : '이미 그 땅에 주둔 중입니다');
+                return false;
+            }
+            if (target.owner !== 'neutral' && target.owner !== div.owner && !atWar(div.owner, target.owner)) {
+                if (!silent) showToast('⚔️ 선전포고가 필요합니다 — 상대 수도를 눌러 외교');
+                return false;
+            }
+            const route = findRoute(origin, target, div.owner);
+            if (!route) {
+                if (!silent) showToast(target.owner === div.owner
+                    ? '⛔ 그곳까지 이어진 내 땅이 없어 갈 수 없습니다'
+                    : '⛔ 내 땅과 맞닿은 빈땅/적 땅만 진군할 수 있습니다 (내 땅을 거쳐서만 이동)');
+                return false;
+            }
+            div.queue = route;
+            div.battle = null; div.bt = null; div.pending = null;
+            div.status = '이동 중...';
+            if (silent) return true;
+            $('division-popup').style.display = 'none';
+            updateRouteLine(div);
+            updateUI();
+            showToast(`${div.name} → ${target.name} 진군 개시 (${route.length - 1}칸)`);
+            return true;
+        }
+
+        // ===== v25: 적 세력과의 전투 / 점령 =====
+        function attackEnemy(div, reg) {
+            const def = FAC[reg.owner], atk = FAC[div.owner];
+            if (!def || !atk || !atWar(atk.id, def.id)) {   // 전쟁 중이 아니면 공격하지 않고 수도로 복귀
+                div.status = '이동 중...'; if (atk && atk.capitalId && atk.capitalId !== reg.id) div.queue = [atk.capitalId]; else div.status = '주둔';
+                return;
+            }
+            const defenders = divisions.filter(o => o !== div && o.owner === reg.owner && o.regionId === reg.id && !o.queue.length && !o.battle)
+                .sort((a, b) => b.troops - a.troops);
+            const involved = div.owner === 'player' || reg.owner === 'player';
+            let S = Math.ceil(div.troops);
+            const S0 = S;
+            for (const D of defenders) {
+                const n = Math.ceil(D.troops), m = Math.min(S, n);
+                S -= m;
+                D.troops = n - m;
+                if (D.troops <= 0) removeDivision(D);
+                if (S <= 0) break;
+            }
+            if (S <= 0) {
+                if (involved) showToast(`💀 ${atk.name} 사단이 ${reg.name}에서 ${def.name}에 패배 (${S0})`);
+                removeDivision(div);
+                return;
+            }
+            div.troops = S;
+            if (involved) {
+                showToast(div.owner === 'player'
+                    ? `⚔️ ${def.name}의 ${reg.name} 점령! (남은 병력 ${S})`
+                    : `🚨 ${atk.name}이(가) ${reg.name}을(를) 점령했습니다!`);
+            }
+            conquer(reg, div.owner);
+        }
+
+        function conquer(reg, newOwnerId) {
+            const old = FAC[reg.owner], nf = FAC[newOwnerId];
+            if (!old || !nf) return;
+            const i = old.ownedList.indexOf(reg);
+            if (i >= 0) old.ownedList.splice(i, 1);
+            const wasCap = old.capitalId === reg.id;
+            reg.owner = newOwnerId;
+            nf.ownedList.push(reg);
+            reg.natives = 0;
+            reg.milLv = Math.min(reg.milLv, TILE_MAX_LV);
+            reg.ecoLv = Math.min(reg.ecoLv, TILE_MAX_LV);
+            if (newOwnerId === 'player') gained++;
+            markDirty(reg.id);
+            landFlag = true;
+            if (wasCap) eliminateFaction(old, nf);
+            if (!catchingUp) { flushLand(); updateBoard(); }
+        }
+
+        function eliminateFaction(f, killer) {
+            f.alive = false; f.capitalId = null;
+            dipCleanup(f.id);
+            divisions.filter(d => d.owner === f.id).forEach(d => removeDivision(d));
+            f.ownedList.slice().forEach(t => { t.owner = 'neutral'; t.natives = 50; t.milLv = 0; t.ecoLv = 0; markDirty(t.id); });
+            f.ownedList.length = 0;
+            if (f.capMarker) { leafMap.removeLayer(f.capMarker); f.capMarker = null; }
+            landFlag = true;
+            showToast(f.id === 'player' ? '💀 수도가 함락되었습니다…' : `🏴 ${f.name} 멸망! (${killer.name}이(가) 수도를 점령)`);
+            if (!catchingUp) checkEnd();
+        }
+
+        function checkEnd() {
+            if (!P.alive) return showEnd(false);
+            if (FACTIONS.every(f => f === P || !f.alive)) showEnd(true);
+        }
+        function showEnd(win) {
+            gameEnded = true; clearSave();
+            setSpeed(0);
+            $('end-title').textContent = win ? '🏆 한반도 통일!' : '💀 패배';
+            $('end-msg').textContent = win ? '모든 AI 세력을 물리쳤습니다.' : '수도가 함락되어 나라가 무너졌습니다.';
+            $('end-modal').style.display = 'flex';
+        }
+
+        // ===== v25: AI =====
+        function aiPickTarget(f, d, defMap, targeted) {
+            const S = Math.ceil(d.troops);
+            const start = getReg(d.regionId);
+            const seen = new Set([start.i]);
+            const parent = new Map();
+            let level = [start], depth = 0, visited = 1;
+            let bestOK = null, bestOKs = Infinity, bestAny = null, bestAnys = Infinity;
+            while (level.length && depth < 40 && visited < 600) {
+                const next = [];
+                for (const t of level) {
+                    for (const v of t.nb) {
+                        if (seen.has(v)) continue;
+                        seen.add(v);
+                        const n = regionsData[v];
+                        if (n.owner === f.id) { parent.set(v, t.i); next.push(n); visited++; continue; }
+                        if (targeted.has(n.id)) continue;
+                        if (offlineTruce && n.owner === 'player') continue;
+                        if (n.owner !== 'neutral' && (isAlly(f.id, n.owner) || bound(f.id, n.owner))) continue;
+                        let need, score;
+                        if (n.owner === 'neutral') { need = Math.ceil(n.natives) + 1; score = depth * 2 + need * 0.04; }
+                        else {
+                            need = (defMap.get(n.id) || 0) + 1;
+                            score = depth * 2 + need * 0.04 - 6;
+                            if (isCap(n)) score -= 30;
+                        }
+                        score += Math.random() * 1.5;
+                        if (S >= need && score < bestOKs) { bestOKs = score; bestOK = { reg: n, need, from: t }; }
+                        if (need + depth * 2 < bestAnys) { bestAnys = need + depth * 2; bestAny = { reg: n, need, from: t }; }
+                    }
+                }
+                level = next; depth++;
+            }
+            const c = bestOK || bestAny;
+            if (c) {
+                const path = [];
+                for (let x = c.from.i; x !== undefined; x = parent.get(x)) path.push(regionsData[x].id);
+                path.reverse(); path.push(c.reg.id);
+                c.route = path;
+            }
+            return c;
+        }
+
+        function aiThink(f) {
+            if (!f.alive || !f.capitalId) return;
+            const cap = getReg(f.capitalId);
+            if (!cap) return;
+            const tryUp = (r, kind) => {
+                const lv = kind === 'mil' ? r.milLv : r.ecoLv;
+                if (lv >= maxLv(r)) return false;
+                const cost = upCost(r, kind);
+                if (f.money < cost + 120) return false;
+                f.money -= cost;
+                if (kind === 'mil') r.milLv++; else r.ecoLv++;
+                return true;
+            };
+            if (!tryUp(cap, 'eco')) tryUp(cap, 'mil');
+
+            const mine = divisions.filter(d => d.owner === f.id);
+            const e = computeEconomy(f);
+            if (mine.length < AI_MAX_DIV && f.military >= MIN_DIV_TROOPS + 5) {
+                const amt = Math.min(Math.floor(f.military), 150);
+                if (!mine.length || e.net - (DIV_UPKEEP_BASE + DIV_UPKEEP_PER_TROOP * amt) > 0.5) {
+                    f.military -= amt;
+                    mine.push(spawnDivision(cap, amt, undefined, undefined, f.id));
+                }
+            }
+
+            const defMap = new Map();
+            divisions.forEach(o => { if (!o.queue.length && !o.battle && o.owner !== 'neutral') defMap.set(o.regionId, (defMap.get(o.regionId) || 0) + Math.ceil(o.troops)); });
+            // 같은 땅에 다른 세력 사단이 있을 때만 방어력으로 계산되도록, 땅 소유자 기준으로만 사용
+            const targeted = new Set();
+            mine.forEach(d => { if (d.queue.length) targeted.add(d.queue[d.queue.length - 1]); });
+            mine.forEach(d => {
+                if (d.queue.length || d.battle || d.pending) return;
+                const here = getReg(d.regionId);
+                if (!here || here.owner !== f.id) return;
+                const c = aiPickTarget(f, d, defMap, targeted);
+                if (!c) return;
+                const S = Math.ceil(d.troops);
+                if (S >= c.need) {
+                    if (c.reg.owner !== 'neutral' && !atWar(f.id, c.reg.owner)) declareWar(f, FAC[c.reg.owner], '영토 확장');
+                    d.queue = c.route; d.battle = null; d.bt = null; d.pending = null; d.status = '이동 중...';
+                    targeted.add(c.reg.id);
+                } else {
+                    const lack = c.need - S;
+                    if (f.military >= lack) {
+                        const add = Math.min(Math.floor(f.military), lack + 8);
+                        f.military -= add; d.troops += add;
+                    }
+                }
+            });
+        }
+
+        function setupFactions(total) {
+            const nAI = Math.max(1, Math.min(AI_DEFS.length, total - 1));
+            const cand = regionsData.filter(r => r.nb && r.nb.length >= 3);
+            const picked = [];
+            let D = 0.9;
+            for (let k = 0; k < nAI; k++) {
+                let reg = null;
+                for (let tries = 0; tries < 600 && !reg; tries++) {
+                    if (tries % 100 === 99) D *= 0.8;
+                    const c = cand[Math.floor(Math.random() * cand.length)];
+                    if (!c || c.owner !== 'neutral') continue;
+                    if (picked.every(q => Math.hypot((q.lng - c.lng) * KX, q.lat - c.lat) >= D)) reg = c;
+                }
+                if (!reg) reg = cand.find(c => c.owner === 'neutral');
+                if (!reg) break;
+                const def = AI_DEFS[k];
+                const f = { id: 'ai' + (k + 1), name: def.name, color: def.color, isAI: true, ownedList: [], capitalId: reg.id,
+                    military: 150, money: 500, alive: true, think: Math.random() * AI_THINK_SEC };
+                FACTIONS.push(f); FAC[f.id] = f; picked.push(reg);
+                gainLand(reg, f.id);
+                f.capMarker = L.marker([reg.lat, reg.lng], { icon: L.divIcon({ html: '<div class="ai-cap">🏛</div>', className: 'div-leaflet-marker', iconSize: [22, 22], iconAnchor: [11, 11] }), interactive: false, zIndexOffset: 800 }).addTo(leafMap);
+            }
+            landFlag = false; gained = 0;
+            updateMapTerritoryStyles();
+            updateBoard();
+        }
+
+
+        // ===== v29: 외교 =====
+        const ENVOY_KMS = 15;      // 외교관 속도 (km/게임초) - 수도 간 거리에 따라 도착 시간이 달라짐
+        const ENVOY_COST = 20;     // 외교관 1회 파견 비용(자금)
+        const TRIBUTE = 0.15;      // 속국이 주군에게 바치는 자금 수입 비율
+        const DIP = { war: new Set(), ally: new Set(), vassal: {}, notes: [], aggr: {} };
+        let gameClock = 0;
+        const envoys = [];
+        let envSeq = 1;
+        const pk = (a, b) => a < b ? a + '|' + b : b + '|' + a;
+        const atWar = (a, b) => DIP.war.has(pk(a, b));
+        const isAlly = (a, b) => DIP.ally.has(pk(a, b));
+        const bound = (a, b) => DIP.vassal[a] === b || DIP.vassal[b] === a;
+        const relOf = (me, o) => atWar(me, o) ? 'war' : isAlly(me, o) ? 'ally' : DIP.vassal[o] === me ? 'vassal' : DIP.vassal[me] === o ? 'lord' : 'none';
+        const REL_TXT = { war: '전쟁 중', ally: '동맹', vassal: '속국', lord: '주군', none: '중립' };
+        const REL_ICON = { war: '⚔️', ally: '🤝', vassal: '👑', lord: '🏰', none: '' };
+        const fname = id => (FAC[id] || {}).name || '?';
+        const alive = id => !!(FAC[id] && FAC[id].alive);
+        const listRel = (id, set) => [...set].map(k => k.split('|')).filter(q => q.includes(id)).map(q => q[0] === id ? q[1] : q[0]).filter(alive);
+        const ago = at => { const t = Math.max(0, gameClock - at); return t < 60 ? `${Math.floor(t)}초 전` : `${Math.floor(t / 60)}분 전`; };
+        const fmtSec = t => { t = Math.round(t); return t >= 60 ? `${Math.floor(t / 60)}분 ${t % 60}초` : `${t}초`; };
+
+        function repOf(id) {
+            let v = 0;
+            DIP.notes.forEach(n => { if (n.to === id) v += n.k === 'support' ? 10 : -15; });
+            v -= 8 * (DIP.aggr[id] || 0);
+            v += 5 * listRel(id, DIP.ally).length;
+            return v;
+        }
+        function addNote(k, from, to, text) {
+            DIP.notes = DIP.notes.filter(n => !(n.from === from && n.to === to));
+            DIP.notes.push({ k, from, to, text: text || '', at: gameClock });
+            if (DIP.notes.length > 300) DIP.notes.shift();
+        }
+        const stanceOf = (from, to) => (DIP.notes.find(n => n.from === from && n.to === to) || {}).k || null;
+        function strength(f) { let t = 0; divisions.forEach(d => { if (d.owner === f.id) t += d.troops; }); return f.ownedList.length + t / 40 + f.military / 60; }
+        const vassalChance = (F, T) => strength(F) >= 1.8 * strength(T);
+
+        function declareWar(F, T, text) {
+            if (atWar(F.id, T.id)) return false;
+            DIP.ally.delete(pk(F.id, T.id));
+            if (DIP.vassal[F.id] === T.id) delete DIP.vassal[F.id];
+            if (DIP.vassal[T.id] === F.id) delete DIP.vassal[T.id];
+            DIP.war.add(pk(F.id, T.id));
+            DIP.aggr[F.id] = (DIP.aggr[F.id] || 0) + 1;
+            addNote('condemn', T.id, F.id, text || '선전포고');
+            if (F.id === 'player') showToast(`⚔️ ${T.name}에 선전포고!`);
+            else if (T.id === 'player') showToast(`🚨 ${F.name}이(가) 선전포고했습니다!`);
+            listRel(T.id, DIP.ally).forEach(a => {   // 동맹은 침략당한 쪽을 돕는다
+                if (a === F.id || atWar(a, F.id) || bound(a, F.id)) return;
+                DIP.ally.delete(pk(a, F.id)); DIP.war.add(pk(a, F.id));
+                if (a === 'player') showToast(`🤝 동맹 ${T.name}을(를) 돕기 위해 ${F.name}과(와) 전쟁!`);
+            });
+            if (!catchingUp) { refreshDip(); updateBoard(); }
+            return true;
+        }
+        function dipCleanup(id) {
+            [DIP.war, DIP.ally].forEach(st => [...st].forEach(k => { if (k.split('|').includes(id)) st.delete(k); }));
+            Object.keys(DIP.vassal).forEach(v => { if (v === id || DIP.vassal[v] === id) delete DIP.vassal[v]; });
+            DIP.notes = DIP.notes.filter(n => n.from !== id && n.to !== id);
+        }
+
+        // ----- 외교관 (수도 ↔ 수도 거리에 비례해 이동) -----
+        function kmBetween(a, b) {
+            const R = 6371, rd = Math.PI / 180, dl = (b.lat - a.lat) * rd, dg = (b.lng - a.lng) * rd;
+            const h = Math.sin(dl / 2) ** 2 + Math.cos(a.lat * rd) * Math.cos(b.lat * rd) * Math.sin(dg / 2) ** 2;
+            return 2 * R * Math.asin(Math.sqrt(h));
+        }
+        function envoyInfo(fromId, toId) {
+            const a = getReg(FAC[fromId].capitalId), b = getReg(FAC[toId].capitalId);
+            const km = kmBetween(a, b);
+            return { a, b, km, sec: Math.max(4, km / ENVOY_KMS) };
+        }
+        function sendEnvoy(type, toId, opt, text) {
+            const T = FAC[toId];
+            if (!P.capitalId || !T || !T.alive || !T.capitalId) return false;
+            if (envoys.some(e => e.to === toId && e.type === type)) { showToast('이미 같은 외교관이 이동 중입니다'); return false; }
+            const amt = type === 'money' ? opt : 0;
+            if (P.money < ENVOY_COST + amt) { showToast('💰 자금이 부족합니다'); return false; }
+            P.money -= ENVOY_COST + amt;
+            const inf = envoyInfo('player', toId);
+            const e = { id: 'e' + (envSeq++), from: 'player', to: toId, type, opt, text: text || '', amt,
+                la: inf.a.lat, ga: inf.a.lng, lb: inf.b.lat, gb: inf.b.lng, t0: gameClock, t1: gameClock + inf.sec };
+            envoys.push(e); envMarker(e);
+            showToast(`✉️ 외교관 파견 — ${fmtSec(inf.sec / (gameState.gameSpeed || 1))} 후 도착 (${Math.round(inf.km)}km)`);
+            updateUI();
+            return true;
+        }
+        function envMarker(e) {
+            if (catchingUp || !leafMap || e.mk) return;
+            e.mk = L.marker([e.la, e.ga], { icon: L.divIcon({ html: '<div class="env-mark">✉️</div>', className: 'div-leaflet-marker', iconSize: [26, 26], iconAnchor: [13, 13] }), interactive: false, zIndexOffset: 900 }).addTo(leafMap);
+            e.ln = L.polyline([[e.la, e.ga], [e.lb, e.gb]], { color: '#fbbf24', weight: 2, dashArray: '2 7', opacity: 0.85, interactive: false, renderer: ren }).addTo(leafMap);
+        }
+        function envDrop(e) { if (e.mk) { leafMap.removeLayer(e.mk); e.mk = null; } if (e.ln) { leafMap.removeLayer(e.ln); e.ln = null; } }
+        function stepEnvoys() {
+            for (let i = envoys.length - 1; i >= 0; i--) {
+                const e = envoys[i];
+                if (gameClock >= e.t1) { envoys.splice(i, 1); envDrop(e); resolveEnvoy(e); continue; }
+                if (!e.mk && !catchingUp) envMarker(e);
+                if (e.mk) { const q = (gameClock - e.t0) / (e.t1 - e.t0); e.mk.setLatLng([e.la + (e.lb - e.la) * q, e.ga + (e.gb - e.ga) * q]); }
+            }
+        }
+        function cedeLand(F, T, n) {
+            const tc = getReg(T.capitalId), busy = new Set();
+            divisions.forEach(d => { if (d.owner === F.id) { busy.add(d.regionId); d.queue.forEach(q => busy.add(q)); if (d.battle) busy.add(d.battle); } });
+            const dist = r => Math.hypot((r.lng - tc.lng) * KX, r.lat - tc.lat);
+            const cand = F.ownedList.filter(r => r.id !== F.capitalId && !busy.has(r.id)).sort((a, b) => dist(a) - dist(b)).slice(0, n);
+            if (!cand.length) { showToast('할양할 수 있는 땅이 없습니다'); return; }
+            cand.forEach(r => conquer(r, T.id));
+            const was = atWar(F.id, T.id);
+            DIP.war.delete(pk(F.id, T.id));
+            addNote('support', T.id, F.id, '영토 할양');
+            if (F.id === 'player' || T.id === 'player') showToast(`🏳️ ${F.name} → ${T.name} 땅 ${cand.length}칸 할양${was ? ' · 전쟁 종결' : ''}`);
+        }
+        function resolveEnvoy(e) {
+            const F = FAC[e.from], T = FAC[e.to];
+            if (!F || !T || !F.alive || !T.alive) {
+                if (e.amt && F && F.alive) F.money = Math.min(MAX_MONEY, F.money + e.amt);
+                showToast('✉️ 외교관이 목적지를 잃고 돌아왔습니다'); return;
+            }
+            const say = m => { if (e.from === 'player' || e.to === 'player') showToast(m); };
+            const a = F.id, b = T.id;
+            if (e.type === 'war') declareWar(F, T, e.text);
+            else if (e.type === 'support') { addNote('support', a, b, e.text); say(`🙌 ${T.name}에 지지를 표명했습니다`); }
+            else if (e.type === 'condemn') { addNote('condemn', a, b, e.text); say(`📢 ${T.name}을(를) 비난했습니다`); }
+            else if (e.type === 'money') { T.money = Math.min(MAX_MONEY, T.money + e.amt); addNote('support', b, a, '자금 지원'); say(`💰 ${T.name}에 자금 ${e.amt} 전달 완료`); }
+            else if (e.type === 'cede') cedeLand(F, T, e.opt);
+            else if (e.type === 'letter') {
+                if (e.opt === 'break') { DIP.ally.delete(pk(a, b)); say(`💔 ${T.name}과(와) 동맹을 파기했습니다`); }
+                else if (e.opt === 'ally') {
+                    const common = listRel(a, DIP.war).filter(x => atWar(b, x)).length;
+                    const ok = !atWar(a, b) && !bound(a, b) && !isAlly(a, b) && Math.random() * 2 + repOf(a) / 10 + 2 * common >= 1;
+                    if (ok) { DIP.ally.add(pk(a, b)); say(`🤝 ${T.name}이(가) 동맹을 수락했습니다!`); } else say(`🙅 ${T.name}이(가) 동맹 제안을 거절했습니다`);
+                } else if (e.opt === 'truce') {
+                    const ok = atWar(a, b) && (T.ownedList.length <= F.ownedList.length * 1.2 || Math.random() < 0.3);
+                    if (ok) { DIP.war.delete(pk(a, b)); say(`🕊 ${T.name}과(와) 휴전했습니다`); } else say(`🙅 ${T.name}이(가) 휴전을 거절했습니다`);
+                }
+            } else if (e.type === 'vassal') {
+                if (!bound(a, b) && !isAlly(a, b) && vassalChance(F, T)) {
+                    DIP.vassal[b] = a; DIP.war.delete(pk(a, b)); say(`👑 ${T.name}이(가) 종속을 받아들였습니다!`);
+                } else say(`🙅 ${T.name}이(가) 종속 요구를 거부했습니다`);
+            }
+            if (!catchingUp) { refreshDip(); updateBoard(); updateUI(); }
+        }
+
+        // ----- 외교 화면 -----
+        const dipUI = { id: null, view: 'info', tab: 'war', opt: '' };
+        const TABS = [['war', '선전포고'], ['support', '지지'], ['condemn', '비난'], ['cede', '할양'], ['letter', '서신'], ['money', '자금'], ['vassal', '종속']];
+        const ph = a => a.map(x => ({ v: x[0] === '선택 안 함' ? '' : x[0], l: x[0], d: x[1] }));
+        const PH = {
+            war: ph([['선택 안 함', '문구 없이 선전포고합니다.'], ['영토 확장', '더 넓은 땅을 위해 전쟁을 선포한다.'], ['과거의 원한', '오래된 원한을 갚겠다.'], ['외국의 침략에 대한 방어', '위협을 막기 위해 선제 대응한다.']]),
+            support: ph([['선택 안 함', '문구 없이 지지를 표명합니다.'], ['건국', '건국을 축하하며 지지한다.'], ['정당한 방어', '정당한 방어를 지지한다.'], ['오랜 우호', '오랜 벗으로서 지지한다.']]),
+            condemn: ph([['선택 안 함', '문구 없이 비난합니다.'], ['침략 행위', '침략 행위를 규탄한다.'], ['배신', '약속을 저버린 배신을 규탄한다.'], ['평화 위협', '평화를 위협하는 도발을 규탄한다.']])
+        };
+        function tabDef(tab, T) {
+            const r = relOf('player', T.id);
+            if (tab === 'war') return r === 'none' ? { opts: PH.war } : { why: r === 'war' ? '이미 전쟁 중입니다' : '동맹·종속 관계에는 선전포고할 수 없습니다' };
+            if (tab === 'support' || tab === 'condemn') return { opts: PH[tab] };
+            if (tab === 'cede') {
+                const n = P.ownedList.length - 1;
+                if (n < 1) return { why: '넘길 수 있는 땅이 없습니다' };
+                return { opts: [1, 3, 5].filter(x => x <= n).map(x => ({ v: x, l: `${x}칸`, d: `내 땅 ${x}칸을 ${T.name}에 넘깁니다. (수도·사단이 있는 땅 제외, 상대 수도와 가까운 땅부터)${r === 'war' ? ' 전쟁이 끝납니다.' : ''}` })) };
+            }
+            if (tab === 'letter') {
+                const o = [];
+                if (r === 'none') o.push({ v: 'ally', l: '동맹 제안', d: '서로 돕는 동맹을 제안합니다. 평판이 좋거나 공동의 적이 있으면 받아들입니다.' });
+                if (r === 'war') o.push({ v: 'truce', l: '휴전 제안', d: '전쟁을 끝내자고 제안합니다. 상대가 밀리고 있으면 받아들입니다.' });
+                if (r === 'ally') o.push({ v: 'break', l: '동맹 파기', d: '동맹을 끊습니다.' });
+                return o.length ? { opts: o } : { why: '지금 보낼 수 있는 서신이 없습니다' };
+            }
+            if (tab === 'money') {
+                const o = [100, 500, 1000, 2000].filter(x => x + ENVOY_COST <= P.money).map(x => ({ v: x, l: `💰 ${x.toLocaleString()}`, d: `${T.name}에 자금 ${x.toLocaleString()}을(를) 보냅니다. 상대의 호감이 올라갑니다.` }));
+                return o.length ? { opts: o } : { why: '자금이 부족합니다' };
+            }
+            if (tab === 'vassal') {
+                if (r !== 'none' && r !== 'war') return { why: r === 'vassal' ? '이미 내 속국입니다' : r === 'lord' ? '상대가 나의 주군입니다' : '동맹 관계에서는 요구할 수 없습니다 (먼저 파기)' };
+                const ch = vassalChance(P, T);
+                return { hideSel: true, opts: [{ v: '', l: '종속 요구', d: `${T.name}에 종속을 요구합니다. 내 세력이 약 1.8배 이상 강하면 받아들입니다. 속국은 자금 수입의 15%를 바칩니다.\n현재 성공 가능성: ${ch ? '🟢 높음' : '🔴 낮음'}` }] };
+            }
+            return { why: '-' };
+        }
+        function openDip(id) {
+            if (!P.capitalId) { showToast('먼저 수도를 세우세요'); return; }
+            const f = FAC[id];
+            if (!f || !f.isAI || !f.alive || !f.capitalId) return;
+            dipUI.id = id; dipUI.view = 'info'; renderDip();
+            $('dip-sheet').style.display = 'block';
+        }
+        function closeDip() { dipUI.id = null; $('dip-sheet').style.display = 'none'; }
+        function refreshDip() {
+            if (!dipUI.id || $('dip-sheet').style.display !== 'block') return;
+            if (!alive(dipUI.id)) closeDip(); else renderDip();
+        }
+        function renderDip() {
+            const T = FAC[dipUI.id], el = $('dip-sheet');
+            if (!T) return;
+            const dot = `<span class="dp-dot" style="background:${T.color}"></span>`;
+            const rel = relOf('player', T.id);
+            if (dipUI.view === 'info') {
+                const wars = listRel(T.id, DIP.war), allies = listRel(T.id, DIP.ally);
+                const vass = Object.keys(DIP.vassal).filter(v => DIP.vassal[v] === T.id && alive(v));
+                const lord = DIP.vassal[T.id];
+                const sup = DIP.notes.filter(n => n.to === T.id && n.k === 'support' && alive(n.from));
+                const con = DIP.notes.filter(n => n.to === T.id && n.k === 'condemn' && alive(n.from));
+                const nm = x => x === 'player' ? '나' : fname(x);
+                const chips = a => a.length ? a.map(x => `<span class="dp-chip"><i style="background:${FAC[x].color}"></i>${nm(x)}</span>`).join('') : '<span class="dp-none">없음</span>';
+                const notes = a => a.length ? a.slice(-4).reverse().map(n => `<div class="dp-note"><span><i style="background:${FAC[n.from].color}"></i>${nm(n.from)}</span><span class="dp-why">${n.text || '이유 없음'} · ${ago(n.at)}</span></div>`).join('') : '<span class="dp-none">없음</span>';
+                const rep = repOf(T.id), dc = divisions.filter(d => d.owner === T.id).length;
+                el.innerHTML = `<div class="dp-head">${dot}<div class="dp-titlebox"><div class="dp-title">${T.name}</div><div class="dp-subt">영토 ${T.ownedList.length}칸 · 사단 ${dc}</div></div>` +
+                    `<button class="dp-diplo" data-a="go">✉ 외교</button><button class="dp-x" data-a="close">✕</button></div>` +
+                    `<div class="dp-tags">${rel !== 'none' ? `<span class="dp-tag ${rel}">${REL_TXT[rel]}</span>` : ''}${lord ? `<span class="dp-tag lord">${nm(lord)}의 속국</span>` : ''}</div>` +
+                    `<div class="dp-sec"><span class="dp-lb">평판</span><b class="dp-rep ${rep < 0 ? 'neg' : 'pos'}">${rep > 0 ? '+' : ''}${rep}</b></div>` +
+                    `<div class="dp-sec"><span class="dp-lb">전쟁 중 ${wars.length}</span><div class="dp-val">${chips(wars)}</div></div>` +
+                    `<div class="dp-sec"><span class="dp-lb">동맹 ${allies.length}</span><div class="dp-val">${chips(allies)}</div></div>` +
+                    `<div class="dp-sec"><span class="dp-lb">속국 ${vass.length}</span><div class="dp-val">${chips(vass)}</div></div>` +
+                    `<div class="dp-sec col"><span class="dp-lb">지지 ${sup.length}</span>${notes(sup)}</div>` +
+                    `<div class="dp-sec col"><span class="dp-lb">비난 ${con.length}</span>${notes(con)}</div>`;
+                return;
+            }
+            const st = stanceOf('player', T.id);
+            const tabs = TABS.map(([k, l]) => `<button class="dp-tab ${dipUI.tab === k ? 'on' : ''} ${tabDef(k, T).why ? 'off' : ''}" data-tab="${k}">${l}</button>`).join('');
+            const d = tabDef(dipUI.tab, T);
+            let body = '';
+            if (d.why) body = `<div class="dp-off">${d.why}</div>`;
+            else {
+                if (!d.opts.some(o => String(o.v) === String(dipUI.opt))) dipUI.opt = String(d.opts[0].v);
+                const cur = d.opts.find(o => String(o.v) === String(dipUI.opt));
+                const lab = { war: '선전포고 문구 (선택)', support: '지지 문구 (선택)', condemn: '비난 문구 (선택)', cede: '넘길 땅', letter: '서신 종류', money: '보낼 자금' }[dipUI.tab];
+                body = (d.hideSel ? '' : `<div class="dp-fl">${lab}</div><select class="dp-sel" id="dip-opt">${d.opts.map(o => `<option value="${o.v}" ${String(o.v) === String(dipUI.opt) ? 'selected' : ''}>${o.l}</option>`).join('')}</select>`) +
+                    `<div class="dp-desc" style="white-space:pre-line">${cur.d}</div>`;
+            }
+            const inf = envoyInfo('player', T.id);
+            const can = !d.why && P.money >= ENVOY_COST;
+            el.innerHTML = `<div class="dp-head"><button class="dp-back" data-a="back">‹</button>${dot}<div class="dp-title">${T.name}와의 외교</div><button class="dp-x" data-a="close">✕</button></div>` +
+                `<div class="dp-rel"><div><span class="dp-lb">우리와의 관계</span><span><span class="dp-tag ${rel}">${REL_TXT[rel]}</span></span></div><div><span class="dp-lb">우리의 입장</span><b>${st === 'support' ? '지지 중' : st === 'condemn' ? '비난 중' : '성명 없음'}</b></div></div>` +
+                `<div class="dp-tabs">${tabs}</div>${body}` +
+                `<div class="dp-eta">🕊 외교관 도착까지 약 <b>${fmtSec(inf.sec / (gameState.gameSpeed || 1))}</b> · 수도 간 거리 ${Math.round(inf.km)}km · 파견 비용 💰${ENVOY_COST}</div>` +
+                `<div class="dp-btns"><button class="dp-cancel" data-a="back">취소</button><button class="dp-send" data-a="send" ${can ? '' : 'disabled'}>외교관 파견</button></div>`;
+        }
+        function initDip() {
+            const sh = $('dip-sheet');
+            sh.addEventListener('click', e => {
+                const b = e.target.closest('[data-a],[data-tab]');
+                if (!b) return;
+                if (b.dataset.tab) { dipUI.tab = b.dataset.tab; dipUI.opt = ''; renderDip(); return; }
+                const a = b.dataset.a, T = FAC[dipUI.id];
+                if (a === 'close') closeDip();
+                else if (a === 'back') { dipUI.view = 'info'; renderDip(); }
+                else if (a === 'go' && T) {
+                    dipUI.view = 'form'; dipUI.opt = '';
+                    const ok = TABS.find(([k]) => !tabDef(k, T).why);
+                    dipUI.tab = tabDef(dipUI.tab, T).why && ok ? ok[0] : dipUI.tab;
+                    renderDip();
+                } else if (a === 'send' && T) {
+                    const d = tabDef(dipUI.tab, T);
+                    if (d.why) return;
+                    const o = d.opts.find(x => String(x.v) === String(dipUI.opt)) || d.opts[0];
+                    const txt = ['war', 'support', 'condemn'].includes(dipUI.tab) ? o.v : '';
+                    const opt = (dipUI.tab === 'money' || dipUI.tab === 'cede') ? +o.v : o.v;
+                    if (sendEnvoy(dipUI.tab, T.id, opt, txt)) closeDip();
+                }
+            });
+            sh.addEventListener('change', e => { if (e.target.id === 'dip-opt') { dipUI.opt = e.target.value; renderDip(); } });
+            $('fb-list').addEventListener('click', e => { const r = e.target.closest('[data-fid]'); if (r && r.dataset.fid !== 'player') openDip(r.dataset.fid); });
+        }
+
+        // ===== v26: 자동 저장 / 이어하기 =====
+        const SAVE_KEY = 'hanbando_save_v1';
+        let gameEnded = false;
+        let menuPrevSpeed = null;   // 메뉴가 열려 있는 동안 원래 속도
+        function loadSave() {
+            try {
+                const sv = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+                if (!sv || sv.v !== 1 || sv.n !== regionsData.length || !sv.factions || !sv.factions.length) return null;
+                return sv;
+            } catch (e) { return null; }
+        }
+        function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
+        function saveGame() {
+            if (gameEnded || catchingUp || FACTIONS.length < 2 || !regionsData.length) return;
+            try {
+                const regs = [];
+                regionsData.forEach(r => { if (r.owner !== 'neutral' || r.milLv || r.ecoLv || r.natives < NATIVES) regs.push([r.id, r.owner, r.milLv, r.ecoLv, Math.round(r.natives)]); });
+                const factions = FACTIONS.map(f => ({ id: f.id, name: f.name, color: f.color, isAI: f.isAI, capitalId: f.capitalId,
+                    military: f.military, money: f.money, alive: f.alive, think: f.think || 0 }));
+                const divs = divisions.map(d => ({ id: d.id, num: d.num, owner: d.owner, name: d.name, regionId: d.regionId,
+                    curLat: d.curLat, curLng: d.curLng, troops: d.troops, queue: d.queue.slice(), status: d.queue.length ? '이동 중...' : '주둔' }));
+                localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, n: regionsData.length, t: Date.now(), speed: menuPrevSpeed !== null ? menuPrevSpeed : gameState.gameSpeed, factions, regs, divs,
+                    dip: { war: [...DIP.war], ally: [...DIP.ally], vassal: DIP.vassal, notes: DIP.notes, aggr: DIP.aggr }, clock: gameClock,
+                    env: envoys.map(e => ({ id: e.id, from: e.from, to: e.to, type: e.type, opt: e.opt, text: e.text, amt: e.amt, la: e.la, ga: e.ga, lb: e.lb, gb: e.gb, t0: e.t0, t1: e.t1 })) }));
+            } catch (e) { /* 저장 공간 부족/차단 시 무시 */ }
+        }
+        function applySave(sv) {
+            FACTIONS.length = 1;
+            Object.keys(FAC).forEach(k => { if (k !== 'player') delete FAC[k]; });
+            P.ownedList.length = 0;
+            sv.factions.forEach(sf => {
+                let f;
+                if (sf.id === 'player') f = P;
+                else { f = { ownedList: [] }; FACTIONS.push(f); FAC[sf.id] = f; }
+                f.id = sf.id; f.name = sf.name; f.color = sf.color; f.isAI = sf.isAI; f.capitalId = sf.capitalId;
+                f.military = sf.military; f.money = sf.money; f.alive = sf.alive; f.think = sf.think;
+            });
+            const sd = sv.dip || {};
+            DIP.war = new Set(sd.war || []); DIP.ally = new Set(sd.ally || []); DIP.vassal = sd.vassal || {}; DIP.notes = sd.notes || []; DIP.aggr = sd.aggr || {};
+            gameClock = sv.clock || 0; envoys.forEach(envDrop); envoys.length = 0; (sv.env || []).forEach(e => envoys.push(e));
+            sv.regs.forEach(a => {
+                const r = getReg(a[0]);
+                if (!r) return;
+                r.owner = FAC[a[1]] ? a[1] : 'neutral'; r.milLv = a[2]; r.ecoLv = a[3]; r.natives = a[4];
+                if (r.owner !== 'neutral') FAC[r.owner].ownedList.push(r);
+                else if (r.natives < NATIVES) nativesDamaged.add(r.id);
+            });
+            divisions.length = 0;
+            sv.divs.forEach(d => {
+                if (!getReg(d.regionId) || !FAC[d.owner]) return;
+                divisions.push(Object.assign({}, d, { queue: d.queue.filter(id => getReg(id)), battle: null, bt: null, pending: null }));
+            });
+            FACTIONS.forEach(f => {
+                if (!f.isAI || !f.alive || !f.capitalId) return;
+                const cr = getReg(f.capitalId);
+                f.capMarker = L.marker([cr.lat, cr.lng], { icon: L.divIcon({ html: '<div class="ai-cap">🏛</div>', className: 'div-leaflet-marker', iconSize: [22, 22], iconAnchor: [11, 11] }), interactive: false, zIndexOffset: 800 }).addTo(leafMap);
+            });
+            regionsData.forEach(r => { if (r.poly) r.poly.setStyle(terrStyle(r)); });
+            setSpeed(sv.speed === 0 || sv.speed === 2 ? sv.speed : 1);
+            divisions.forEach(d => updateRouteLine(d));
+            renderDivisionLeafletMarkers();
+            updateBoard();
+        }
+
+        function chooseTotal(sv) {
+            return new Promise(res => {
+                const m = $('start-modal');
+                m.style.display = 'flex';
+                if (sv) {
+                    const own = sv.factions.find(f => f.id === 'player');
+                    const mins = Math.max(1, Math.round((Date.now() - sv.t) / 60000));
+                    const cb = $('btn-continue');
+                    cb.style.display = 'block';
+                    cb.textContent = `▶ 이어하기 (세력 ${sv.factions.length}명 · ${mins}분 전 저장${own && own.alive ? '' : ' · 패배'})`;
+                    $('new-game-label').style.display = 'block';
+                    cb.addEventListener('click', () => { m.style.display = 'none'; res(-1); });
+                }
+                m.querySelectorAll('[data-n]').forEach(b => b.addEventListener('click', () => { m.style.display = 'none'; res(parseInt(b.dataset.n, 10)); }));
+            });
+        }
+
+        let boardOpen = window.innerWidth > 850;
+        function updateBoard() {
+            const list = $('fb-list');
+            $('fb-toggle').textContent = '🏳️ 세력 현황 ' + (boardOpen ? '▴' : '▾');
+            list.style.display = boardOpen ? 'flex' : 'none';
+            if (!boardOpen) return;
+            const dc = {};
+            divisions.forEach(d => { dc[d.owner] = (dc[d.owner] || 0) + 1; });
+            list.innerHTML = FACTIONS.slice().sort((a, b) => (b.alive - a.alive) || (b.ownedList.length - a.ownedList.length)).map(f =>
+                `<div class="fb-row ${f.alive ? '' : 'dead'} ${f.id === 'player' ? 'me' : ''}" data-fid="${f.id}"><span class="fb-dot" style="background:${f.color}"></span>` +
+                `<span class="fb-name">${f.name} ${f.id === 'player' ? '' : REL_ICON[relOf('player', f.id)]}</span><span class="fb-n">🏴${f.ownedList.length}</span><span class="fb-n">🎖${dc[f.id] || 0}</span></div>`).join('');
+        }
+
+        function handleRegionClick(regionId) {
+            const reg = getReg(regionId);
+            if (!reg) return;
+
+            if (gameState.isMoveMode && gameState.selectedDivisionId) {
+                if (moveDivision(gameState.selectedDivisionId, regionId)) gameState.isMoveMode = false;
+                return;
+            }
+
+            closeDip();
+            const ofc = FAC[reg.owner];
+            if (ofc && ofc.isAI && ofc.alive && P.capitalId && isCap(reg)) openDip(ofc.id);
+            markDirty(gameState.selectedRegionId);
+            markDirty(regionId);
+            gameState.selectedRegionId = regionId;
+            gameState.selectedDivisionId = null;
+            $('division-popup').style.display = 'none';
+
+            updateMapTerritoryStyles();
+            renderDivisionLeafletMarkers();
+            updateUI();
+        }
+
+        function handleDivisionClick(divisionId) {
+            const d0 = divisions.find(d => d.id === divisionId);
+            if (d0 && d0.owner !== 'player') {
+                if (gameState.isMoveMode && gameState.selectedDivisionId) { handleRegionClick(d0.regionId); return; }
+                showToast(`🚩 ${FAC[d0.owner].name} 사단 (군사력 ${Math.ceil(d0.troops)})`);
+                return;
+            }
+            markDirty(gameState.selectedRegionId);
+            gameState.selectedDivisionId = divisionId;
+            gameState.selectedRegionId = null;
+            gameState.isMoveMode = false;
+
+            updateMapTerritoryStyles();
+            renderDivisionLeafletMarkers();
+            updateUI();
+
+            const div = divisions.find(d => d.id === divisionId);
+            if (div) updateDivisionPopup(div);
+        }
+
+        function updateDivisionPopup(div) {
+            $('popup-div-title').innerHTML = `${div.name} <span class="div-popup-troops">⚔️ ${Math.ceil(div.troops).toLocaleString()}</span>`;
+            const br = div.battle ? getReg(div.battle) : null;
+            const where = div.queue.length ? '이동 중' : br ? `전투 중 (원주민 ${Math.ceil(br.natives)})` : `${getRegionName(div.regionId)} 주둔`;
+            $('popup-div-location').textContent = `${where} · 유지비 -${fmt(divUpkeep(div))}/s`;
+            $('division-popup').style.display = 'flex';
+        }
+        function refreshPopup() {
+            const div = divisions.find(d => d.id === gameState.selectedDivisionId);
+            if (div && $('division-popup').style.display === 'flex') updateDivisionPopup(div);
+        }
+
+        function getRegionName(id) {
+            const r = getReg(id);
+            return r ? r.name : '미상';
+        }
+
+        function updateUI() {
+            $('res-military').textContent = Math.floor(gameState.military).toLocaleString();
+            $('res-money').textContent = Math.floor(gameState.money).toLocaleString();
+            $('res-div').textContent = myDivs().length;
+            $('res-land').textContent = gameState.landCount.toLocaleString();
+            if (gameState.capitalRegionId) {
+                const e = computeEconomy();
+                const net = $('res-net');
+                net.textContent = `(${sgn(e.net)}/s)`;
+                net.style.color = e.net < 0 ? '#f87171' : '#4ade80';
+            }
+
+            const reg = getReg(gameState.selectedRegionId);
+            // v22: 패널은 내 땅을 눌렀을 때만 표시 (수도 설립 전에는 수도 지을 땅 선택을 위해 표시)
+            $('territory-panel').style.display = (reg && (reg.owner === 'player' || !gameState.capitalRegionId)) ? 'flex' : 'none';
+            const chip = $('land-chip');
+            if (reg && reg.owner !== 'player' && gameState.capitalRegionId) {
+                if (reg.owner === 'neutral') chip.innerHTML = `⚪ ${reg.name} <span class="lc-nat">🛡 원주민 ${Math.ceil(reg.natives)}</span>`;
+                else {
+                    const ef = FAC[reg.owner];
+                    let g = 0; divisions.forEach(d => { if (d.owner === reg.owner && d.regionId === reg.id && !d.queue.length) g += Math.ceil(d.troops); });
+                    chip.innerHTML = `<span style="color:${ef.color}">■</span> ${reg.name} · ${ef.name} ${REL_ICON[relOf('player', ef.id)]}${isCap(reg) ? ' 수도' : ''} <span class="lc-nat">🎖 주둔 ${g}</span>`;
+                }
+                chip.style.display = 'flex';
+            } else chip.style.display = 'none';
+            const btnSetCap = $('btn-set-capital');
+            const bMin = $('btn-create-min'), bMax = $('btn-create-max');
+            const dev = $('dev-box');
+
+            if (reg) {
+                $('reg-name').textContent = reg.name;
+                $('reg-path').textContent = reg.path || '';
+                const badge = $('reg-status-badge');
+                const owned = reg.owner === 'player';
+                if (isCap(reg)) { badge.textContent = '⭐ 수도'; badge.style.background = '#f59e0b'; }
+                else if (owned) { badge.textContent = '💙 아군 영토'; badge.style.background = '#1d4ed8'; }
+                else { badge.textContent = '⚪ 중립 (빈땅)'; badge.style.background = '#334155'; }
+                $('reg-military-rate').textContent = owned ? `+${fmt(milOut(reg))}/s` : '0/s';
+                $('reg-money-rate').textContent = owned ? `+${fmt(moneyOut(reg))}/s` : '0/s';
+                $('reg-upkeep').textContent = owned ? `-${fmt(landUpkeep(reg))}/s` : '0/s';
+                $('reg-natives').textContent = owned ? '없음' : `${Math.ceil(reg.natives)} / ${NATIVES}`;
+
+                btnSetCap.disabled = gameState.capitalRegionId !== null || reg.owner !== 'neutral';
+                const canMake = owned && myDivs().length < MAX_DIV;
+                bMin.disabled = !canMake || gameState.military < MIN_DIV_TROOPS;
+                bMax.disabled = bMin.disabled;
+                bMax.textContent = bMax.disabled ? '최대' : `최대 ${Math.floor(gameState.military)}`;
+                $('div-count').textContent = `${myDivs().length}/${MAX_DIV}`;
+
+                if (owned) {
+                    dev.style.display = 'flex';
+                    ['mil', 'eco'].forEach(k => {
+                        const lv = k === 'mil' ? reg.milLv : reg.ecoLv, mx = maxLv(reg), cost = upCost(reg, k);
+                        $('lv-' + k).textContent = `Lv ${lv}/${mx}`;
+                        const b = $('btn-up-' + k);
+                        if (lv >= mx) { b.textContent = 'MAX'; b.disabled = true; }
+                        else { b.textContent = `⬆ 💰${cost.toLocaleString()}`; b.disabled = gameState.money < cost; }
+                    });
+                } else dev.style.display = 'none';
+            } else {
+                $('reg-name').textContent = '🗺️ 땅을 선택하여 이름을 확인하세요';
+                $('reg-path').textContent = '';
+                $('reg-status-badge').textContent = '미선택';
+                $('reg-status-badge').style.background = '#334155';
+                $('reg-military-rate').textContent = '+0/s';
+                $('reg-money-rate').textContent = '+0/s';
+                $('reg-upkeep').textContent = '0/s';
+                $('reg-natives').textContent = '-';
+                btnSetCap.disabled = true;
+                bMin.disabled = true; bMax.disabled = true;
+                dev.style.display = 'none';
+            }
+        }
+
+        function nextDivNumber(owner) {
+            owner = owner || 'player';
+            const used = new Set(divisions.filter(d => d.owner === owner).map(d => d.num));
+            for (let i = 1; i <= 99; i++) if (!used.has(i)) return i;
+            return 100;
+        }
+        function spawnDivision(reg, troops, lat, lng, owner) {
+            owner = owner || 'player';
+            const num = nextDivNumber(owner);
+            const d = { id: 'div_' + owner + '_' + num + '_' + Date.now(), num: num, owner: owner, name: (owner === 'player' ? '사단 ' : FAC[owner].name + ' ') + num, regionId: reg.id,
+                curLat: lat === undefined ? reg.lat : lat, curLng: lng === undefined ? reg.lng : lng,
+                troops: troops, queue: [], status: '주둔' };
+            divisions.push(d);
+            return d;
+        }
+
+        function upgradeSelected(kind) {
+            const reg = getReg(gameState.selectedRegionId);
+            if (!reg || reg.owner !== 'player') return;
+            const lv = kind === 'mil' ? reg.milLv : reg.ecoLv;
+            if (lv >= maxLv(reg)) { showToast('이미 최대 레벨입니다'); return; }
+            const cost = upCost(reg, kind);
+            if (gameState.money < cost) { showToast('⚠️ 자금력이 부족합니다!'); return; }
+            gameState.money -= cost;
+            if (kind === 'mil') reg.milLv++; else reg.ecoLv++;
+            updateUI();
+            showToast(`${kind === 'mil' ? '⚔️ 군사개발' : '💰 경제개발'} Lv ${lv + 1} 완료 (${reg.name})`);
+        }
+
+        function attachEventListeners() {
+            initDip();
+            $('btn-pause').addEventListener('click', () => setSpeed(0));
+            $('btn-1x').addEventListener('click', () => setSpeed(1));
+            $('btn-2x').addEventListener('click', () => setSpeed(2));
+
+            window.addEventListener('keydown', e => {
+                if (e.key === 'Escape' && gameState.isMoveMode) { gameState.isMoveMode = false; showToast('이동 명령 취소'); }
+            });
+
+            $('popup-close-btn').addEventListener('click', () => {
+                $('division-popup').style.display = 'none';
+                gameState.selectedDivisionId = null;
+                gameState.isMoveMode = false;
+                renderDivisionLeafletMarkers();
+            });
+
+            $('panel-close-btn').addEventListener('click', () => {
+                markDirty(gameState.selectedRegionId);
+                gameState.selectedRegionId = null;
+                updateMapTerritoryStyles();
+                updateUI();
+            });
+
+            $('btn-set-capital').addEventListener('click', () => {
+                const reg = getReg(gameState.selectedRegionId);
+                if (!reg || gameState.capitalRegionId || reg.owner !== 'neutral') return;
+                gameState.capitalRegionId = reg.id;
+                gainLand(reg);
+                gameState.military = 150;
+                gameState.money = 500;
+                markDirty(reg.id);
+                landFlag = false; gained = 0;
+                updateMapTerritoryStyles();
+                updateUI();
+                showToast(`⭐ 수도 설립 완료 (${reg.name}): 자원 수급 시작!`);
+            });
+
+            $('fb-toggle').addEventListener('click', () => { boardOpen = !boardOpen; updateBoard(); });
+            $('end-restart').addEventListener('click', () => location.reload());
+
+            $('btn-up-mil').addEventListener('click', () => upgradeSelected('mil'));
+            $('btn-up-eco').addEventListener('click', () => upgradeSelected('eco'));
+
+            const createDivision = amt => {
+                const reg = getReg(gameState.selectedRegionId);
+                if (!reg || reg.owner !== 'player') return;
+                if (myDivs().length >= MAX_DIV) { showToast(`⚠️ 사단은 최대 ${MAX_DIV}개까지 창설할 수 있습니다`); return; }
+                if (isNaN(amt) || amt < MIN_DIV_TROOPS) { showToast(`⚠️ 사단은 군사력 ${MIN_DIV_TROOPS} 이상부터 창설 가능합니다!`); return; }
+                if (gameState.military < amt) { showToast(`⚠️ 군사력이 부족합니다! (보유 ${Math.floor(gameState.military)})`); return; }
+                gameState.military -= amt;
+                const nd = spawnDivision(reg, amt);
+                gameState.selectedDivisionId = nd.id;
+                gameState.selectedRegionId = null;
+                markDirty(reg.id);
+                updateMapTerritoryStyles();
+                renderDivisionLeafletMarkers();
+                updateUI();
+                updateDivisionPopup(nd);
+                showToast(`${nd.name} (군사력 ${amt}) 창설 완료!`);
+            };
+            $('btn-create-min').addEventListener('click', () => createDivision(MIN_DIV_TROOPS));
+            $('btn-create-max').addEventListener('click', () => createDivision(Math.floor(gameState.military)));
+
+            $('btn-popup-move').addEventListener('click', () => {
+                if (!gameState.selectedDivisionId) return;
+                gameState.isMoveMode = true;
+                $('division-popup').style.display = 'none';
+                showToast('진군할 땅을 클릭하세요 (내 땅 경유 / 빈땅·적 땅은 내 땅과 맞닿은 곳만, Esc 취소)');
+            });
+
+            const reinforce = amount => {
+                const div = divisions.find(d => d.id === gameState.selectedDivisionId);
+                if (!div) return;
+                const add = Math.min(amount === Infinity ? Infinity : amount, Math.floor(gameState.military));
+                if (add <= 0) { showToast('⚠️ 증원에 쓸 군사력이 없습니다!'); return; }
+                gameState.military -= add;
+                div.troops += add;
+                renderDivisionLeafletMarkers();
+                updateUI();
+                updateDivisionPopup(div);
+                showToast(`🩹 ${div.name} +${add} 증원 (현재 ${div.troops})`);
+            };
+            $('btn-ref-10').addEventListener('click', () => reinforce(10));
+            $('btn-ref-50').addEventListener('click', () => reinforce(50));
+            $('btn-ref-all').addEventListener('click', () => reinforce(Infinity));
+
+            $('btn-popup-split').addEventListener('click', () => {
+                const div = divisions.find(d => d.id === gameState.selectedDivisionId);
+                if (!div) return;
+                if (myDivs().length >= MAX_DIV) { showToast(`⚠️ 사단은 최대 ${MAX_DIV}개입니다`); return; }
+                if (div.battle) { showToast('⚠️ 전투 중에는 분할할 수 없습니다'); return; }
+                div.troops = Math.ceil(div.troops);
+                if (div.troops < 2) { showToast('⚠️ 군사력이 너무 적어 나눌 수 없습니다'); return; }
+                const half = Math.floor(div.troops / 2);
+                div.troops -= half;
+                const nd = spawnDivision(getReg(div.regionId), half, div.curLat, div.curLng);
+                nd.queue = div.queue.slice();
+                if (nd.queue.length) nd.status = '이동 중...';
+                renderDivisionLeafletMarkers();
+                updateUI();
+                updateDivisionPopup(div);
+                showToast(`${nd.name} 분할 완료 (군사력 ${half})`);
+            });
+
+            $('btn-popup-disband').addEventListener('click', () => {
+                const d = divisions.find(x => x.id === gameState.selectedDivisionId);
+                if (!d) return;
+                const t = Math.ceil(d.troops);
+                gameState.military = Math.min(MAX_MIL, gameState.military + t);
+                removeDivision(d);
+                updateUI();
+                showToast(`${d.name} 해산 (군사력 ${t} 회수)`);
+            });
+        }
+
+        function setSpeed(spd) {
+            gameState.gameSpeed = spd;
+            document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+            if (spd === 0) $('btn-pause').classList.add('active');
+            else if (spd === 1) $('btn-1x').classList.add('active');
+            else if (spd === 2) $('btn-2x').classList.add('active');
+        }
+
+        let toastTimer = null;
+        function showToast(msg) {
+            if (catchingUp) return;
+            const toast = $('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+        }
+
+        // ===== v28: 자리 비운 동안 따라잡기 =====
+        let catchingUp = false, offlineTruce = false;
+        const CATCH_CAP = 86400;      // 최대 24시간분
+        const CATCH_RATE = 1;         // 자리 비운 시간 대비 진행 속도 (1 = 실제 시간과 같음, 0.5 = 절반)
+        const fmtDur = sec => { const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60); return h ? `${h}시간 ${m}분` : `${m}분`; };
+        async function catchUp(sv) {
+            const speed = sv.speed === 2 ? 2 : sv.speed === 1 ? 1 : 0;
+            const real = Math.max(0, (Date.now() - sv.t) / 1000);
+            const total = Math.min(real * speed * CATCH_RATE, CATCH_CAP);
+            if (!speed || total < 120 || !P.alive || !P.capitalId) return;
+            gameState.gameSpeed = 0;
+            const modal = $('away-modal');
+            $('away-title').textContent = `⏱ 자리를 비운 ${fmtDur(real)} 동안…`;
+            $('away-sub').textContent = '그동안의 세상을 계산하는 중입니다';
+            $('away-list').innerHTML = ''; $('away-ok').style.display = 'none';
+            $('away-bar').style.display = 'block'; $('away-fill').style.width = '0%';
+            modal.style.display = 'flex';
+            await new Promise(r => setTimeout(r, 50));
+
+            const before = FACTIONS.map(f => ({ f, land: f.ownedList.length, alive: f.alive }));
+            catchingUp = true; offlineTruce = true;
+            const STEP = 2;
+            let done = 0, k = 0, last = performance.now();
+            try {
+                while (done < total) {
+                    for (let i = 0; i < 4; i++) stepWorld(0.5, 1);
+                    regenNatives(STEP);
+                    FACTIONS.forEach(f => { if (f.alive && f.capitalId) tickFaction(f, STEP); });
+                    if (++k % 3 === 0) FACTIONS.forEach(f => { if (f.isAI && f.alive) aiThink(f); });
+                    done += STEP;
+                    if (performance.now() - last > 40) {
+                        $('away-fill').style.width = Math.min(100, done / total * 100).toFixed(0) + '%';
+                        await new Promise(r => setTimeout(r, 0));
+                        last = performance.now();
+                    }
+                }
+            } finally { catchingUp = false; offlineTruce = false; }
+
+            regionsData.forEach(r => markDirty(r.id));
+            updateMapTerritoryStyles();
+            landFlag = false; gained = 0;
+            renderDivisionLeafletMarkers(); updateBoard(); updateUI();
+
+            $('away-bar').style.display = 'none';
+            $('away-sub').textContent = real * speed * CATCH_RATE > CATCH_CAP ? '최대 24시간분까지 계산했습니다. AI끼리만 싸웠고 내 땅은 공격받지 않았습니다.'
+                : 'AI끼리만 싸웠고 내 땅은 공격받지 않았습니다.';
+            $('away-list').innerHTML = before.map(b => {
+                const now = b.f.ownedList.length, died = b.alive && !b.f.alive, d = now - b.land;
+                return `<div class="away-row ${b.f.id === 'player' ? 'me' : ''} ${b.f.alive ? '' : 'dead'}"><span class="fb-dot" style="background:${b.f.color}"></span>` +
+                    `<span class="nm">${b.f.name}</span><span class="ch">${died ? '💀 멸망' : `🏴 ${b.land} → ${now} (${d >= 0 ? '+' : ''}${d})`}</span></div>`;
+            }).join('');
+            $('away-ok').style.display = 'block';
+            await new Promise(r => $('away-ok').addEventListener('click', r, { once: true }));
+            modal.style.display = 'none';
+            setSpeed(speed);
+            checkEnd();
+        }
+
+        // ===== v27: 메뉴 =====
+        function openMenu() {
+            if (menuPrevSpeed !== null || $('end-modal').style.display === 'flex' || $('start-modal').style.display === 'flex') return;
+            menuPrevSpeed = gameState.gameSpeed;
+            setSpeed(0);
+            gameState.isMoveMode = false;
+            resetMenuConfirm();
+            $('menu-modal').style.display = 'flex';
+        }
+        function closeMenu(speed) {
+            if (menuPrevSpeed === null) return;
+            const sp = speed === undefined ? menuPrevSpeed : speed;
+            menuPrevSpeed = null;
+            $('menu-modal').style.display = 'none';
+            setSpeed(sp);
+        }
+        function resetMenuConfirm() {
+            const b = $('menu-new');
+            b.classList.remove('confirm'); b.textContent = '🔄 새 게임';
+        }
+        function initMenu() {
+            $('btn-menu').addEventListener('click', openMenu);
+            $('menu-resume').addEventListener('click', () => closeMenu());
+            $('menu-sp0').addEventListener('click', () => closeMenu(0));
+            $('menu-sp1').addEventListener('click', () => closeMenu(1));
+            $('menu-sp2').addEventListener('click', () => closeMenu(2));
+            $('menu-modal').addEventListener('click', e => { if (e.target === $('menu-modal')) closeMenu(); });
+            window.addEventListener('keydown', e => {
+                if (e.key !== 'Escape') return;
+                if (menuPrevSpeed !== null) closeMenu(); else if (!gameState.isMoveMode) openMenu();
+            });
+            $('menu-save').addEventListener('click', () => {
+                if (FACTIONS.length < 2) { showToast('아직 시작 전이라 저장할 게 없습니다'); return; }
+                saveGame();
+                $('menu-note').textContent = '💾 저장했습니다 (' + new Date().toLocaleTimeString('ko-KR') + ')';
+            });
+            $('menu-exit').addEventListener('click', () => {
+                saveGame();
+                gameEnded = true;   // 나가는 중 자동 저장이 덮어쓰지 않게
+                location.reload();  // 처음 화면(이어하기)으로
+            });
+            $('menu-new').addEventListener('click', () => {
+                const b = $('menu-new');
+                if (!b.classList.contains('confirm')) {
+                    b.classList.add('confirm'); b.textContent = '⚠️ 저장이 삭제됩니다. 한 번 더 누르면 새 게임';
+                    return;
+                }
+                clearSave(); gameEnded = true;
+                location.reload();
+            });
+        }
+
+        // ===== v26: PWA =====
+        let installEvt = null;
+        window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('btn-install').style.display = 'inline-block'; });
+        window.addEventListener('appinstalled', () => { $('btn-install').style.display = 'none'; installEvt = null; });
+        window.addEventListener('DOMContentLoaded', () => {
+            $('btn-install').addEventListener('click', async () => {
+                if (!installEvt) return;
+                installEvt.prompt();
+                try { await installEvt.userChoice; } catch (e) { }
+                installEvt = null; $('btn-install').style.display = 'none';
+            });
+            if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) navigator.serviceWorker.register('sw.js').catch(() => { });
+        });
+
+        window.addEventListener('DOMContentLoaded', initMenu);
+        window.addEventListener('DOMContentLoaded', initGame);
+    </script>
+</body>
+</html>
